@@ -7,9 +7,10 @@ interface Props {
   drivers: Driver[];
   highlightDriver: number | null;
   currentLap: number;
+  maxLap: number;
 }
 
-export default function LapTimesChart({ laps, drivers, highlightDriver }: Props) {
+export default function LapTimesChart({ laps, drivers, highlightDriver, maxLap }: Props) {
   const chartData = useMemo(() => {
     const lapNumbers = [...new Set(laps.map(l => l.lap_number))].sort((a, b) => a - b);
     return lapNumbers.map(lapNum => {
@@ -48,7 +49,7 @@ export default function LapTimesChart({ laps, drivers, highlightDriver }: Props)
           <Tooltip
             contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
             labelStyle={{ color: '#f9fafb' }}
-            formatter={(value: unknown) => [`${Number(value).toFixed(3)}s`, '']}
+            formatter={(value: unknown, name: unknown) => [`${Number(value).toFixed(3)}s`, String(name)]}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           {drivers.map(driver => (
@@ -61,6 +62,7 @@ export default function LapTimesChart({ laps, drivers, highlightDriver }: Props)
               strokeOpacity={highlightDriver && highlightDriver !== driver.driver_number ? 0.2 : 1}
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
           ))}
         </LineChart>

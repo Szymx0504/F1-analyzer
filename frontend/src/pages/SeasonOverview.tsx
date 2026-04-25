@@ -66,7 +66,7 @@ export default function SeasonOverview() {
           <option value="">Select Race...</option>
           {sessions?.map(s => (
             <option key={s.session_key} value={s.session_key}>
-              {s.meeting_name} — {s.country_name}
+              {s.circuit_short_name} — {s.country_name}
             </option>
           ))}
         </select>
@@ -90,7 +90,7 @@ export default function SeasonOverview() {
                 }`}
               >
                 <p className="font-medium text-sm">{s.country_name}</p>
-                <p className="text-xs text-f1-muted">{s.meeting_name}</p>
+                <p className="text-xs text-f1-muted">{s.circuit_short_name}</p>
                 <p className="text-xs text-f1-muted mt-1">
                   {new Date(s.date_start).toLocaleDateString()}
                 </p>

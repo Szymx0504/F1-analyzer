@@ -18,6 +18,7 @@ export default function RaceReplay() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [raceData, setRaceData] = useState<FullRaceData | null>(null);
+  const [loadingData, setLoadingData] = useState(false);
 
   // Fetch race sessions for the year
   const { data: sessions } = useApi(
@@ -37,14 +38,19 @@ export default function RaceReplay() {
     let cancelled = false;
 
     async function loadData() {
+      setLoadingData(true);
+      setRaceData(null);
       try {
-        const [laps, positions, stints, weather, intervals] = await Promise.all([
-          api.getLaps(sessionKey!),
-          api.getPosition(sessionKey!),
-          api.getStints(sessionKey!),
-          api.getWeather(sessionKey!),
-          api.getIntervals(sessionKey!),
-        ]);
+        // Sequential fetches to avoid 429 rate-limiting from OpenF1
+        const laps = await api.getLaps(sessionKey!);
+        if (cancelled) return;
+        const positions = await api.getPosition(sessionKey!);
+        if (cancelled) return;
+        const stints = await api.getStints(sessionKey!);
+        if (cancelled) return;
+        const weather = await api.getWeather(sessionKey!);
+        if (cancelled) return;
+        const intervals = await api.getIntervals(sessionKey!);
         if (!cancelled) {
           setRaceData({ type: 'full_race_data', laps, positions, stints, weather, intervals });
           setCurrentLap(1);
@@ -52,6 +58,8 @@ export default function RaceReplay() {
         }
       } catch (err) {
         console.error('Failed to load race data:', err);
+      } finally {
+        if (!cancelled) setLoadingData(false);
       }
     }
     loadData();
@@ -150,7 +158,7 @@ export default function RaceReplay() {
           <option value="">Select Race...</option>
           {sessions?.map(s => (
             <option key={s.session_key} value={s.session_key}>
-              {s.meeting_name} — {s.country_name}
+              {s.circuit_short_name} — {s.country_name}
             </option>
           ))}
         </select>
@@ -193,6 +201,7 @@ export default function RaceReplay() {
             drivers={uniqueDrivers}
             highlightDriver={selectedDriver}
             currentLap={currentLap}
+            maxLap={maxLap}
           />
           <GapChart
             intervals={currentIntervals}
@@ -200,16 +209,19 @@ export default function RaceReplay() {
             drivers={uniqueDrivers}
             highlightDriver={selectedDriver}
             currentLap={currentLap}
+            maxLap={maxLap}
           />
           <LapTimesChart
             laps={lapsUpToCurrent}
             drivers={uniqueDrivers}
             highlightDriver={selectedDriver}
             currentLap={currentLap}
+            maxLap={maxLap}
           />
           <TireStrategy
             stints={currentStints}
             drivers={uniqueDrivers}
+            laps={lapsUpToCurrent}
             maxLap={maxLap}
             currentLap={currentLap}
           />
@@ -219,6 +231,12 @@ export default function RaceReplay() {
             driverNumber={selectedDriver ?? (uniqueDrivers[0]?.driver_number ?? null)}
             driver={uniqueDrivers.find(d => d.driver_number === (selectedDriver ?? uniqueDrivers[0]?.driver_number)) ?? null}
           />
+        </div>
+      ) : loadingData ? (
+        <div className="text-center text-f1-muted py-20">
+          <div className="inline-block w-8 h-8 border-4 border-f1-border border-t-f1-red rounded-full animate-spin mb-4" />
+          <p className="text-lg">Loading race data...</p>
+          <p className="text-sm mt-1">Fetching laps, positions, tires, weather & intervals</p>
         </div>
       ) : (
         <div className="text-center text-f1-muted py-20">

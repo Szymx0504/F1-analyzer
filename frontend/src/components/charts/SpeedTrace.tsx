@@ -67,6 +67,7 @@ export default function SpeedTrace({ sessionKey, driverNumber, driver }: Props) 
               fill={color}
               fillOpacity={0.15}
               strokeWidth={1.5}
+              isAnimationActive={false}
             />
           </AreaChart>
         </ResponsiveContainer>

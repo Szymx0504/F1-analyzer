@@ -1,8 +1,9 @@
 """
-OpenF1 API client with in-memory TTL caching.
+OpenF1 API client with in-memory TTL caching and retry logic.
 Docs: https://openf1.org
 """
 
+import asyncio
 import httpx
 from cachetools import TTLCache
 from typing import Any
@@ -15,22 +16,56 @@ _cache: TTLCache = TTLCache(maxsize=512, ttl=300)
 # Short TTL cache for live data (10 seconds)
 _live_cache: TTLCache = TTLCache(maxsize=128, ttl=10)
 
+# Persistent HTTP client (reuse connections)
+_client: httpx.AsyncClient | None = None
+
+# Semaphore to limit concurrent requests to OpenF1 (avoid 429)
+_semaphore = asyncio.Semaphore(3)
+
+MAX_RETRIES = 3
+RETRY_BACKOFF = [1.0, 3.0, 6.0]
+
+
+def _get_client() -> httpx.AsyncClient:
+    global _client
+    if _client is None or _client.is_closed:
+        _client = httpx.AsyncClient(timeout=30.0)
+    return _client
+
 
 async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool = False) -> list[dict]:
-    """Fetch from OpenF1 API with caching."""
+    """Fetch from OpenF1 API with caching, rate-limit protection, and retries."""
     cache = _live_cache if live else _cache
     key = f"{endpoint}:{sorted(params.items()) if params else ''}"
 
     if key in cache:
         return cache[key]
 
-    async with httpx.AsyncClient(timeout=30.0) as client:
-        resp = await client.get(f"{BASE_URL}{endpoint}", params=params)
-        resp.raise_for_status()
-        data = resp.json()
+    async with _semaphore:
+        # Double-check cache after acquiring semaphore (another request may have filled it)
+        if key in cache:
+            return cache[key]
 
-    cache[key] = data
-    return data
+        client = _get_client()
+        for attempt in range(MAX_RETRIES):
+            resp = await client.get(f"{BASE_URL}{endpoint}", params=params)
+            if resp.status_code == 429:
+                wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+                print(
+                    f"[OpenF1] 429 rate-limited on {endpoint}, retrying in {wait}s (attempt {attempt+1})")
+                await asyncio.sleep(wait)
+                continue
+            resp.raise_for_status()
+            data = resp.json()
+            cache[key] = data
+            return data
+
+    # All retries exhausted
+    raise httpx.HTTPStatusError(
+        f"Rate-limited after {MAX_RETRIES} retries on {endpoint}",
+        request=httpx.Request("GET", f"{BASE_URL}{endpoint}"),
+        response=resp,
+    )
 
 
 # ─── Sessions ────────────────────────────────────────────────────────
@@ -78,14 +113,11 @@ async def get_position(session_key: int, driver_number: int | None = None) -> li
 async def get_car_data(
     session_key: int,
     driver_number: int,
-    speed: bool = True,
 ) -> list[dict]:
     params: dict[str, Any] = {
         "session_key": session_key,
         "driver_number": driver_number,
     }
-    if speed:
-        params["speed>="] = 0  # filter out invalid
     return await _fetch("/car_data", params)
 
 

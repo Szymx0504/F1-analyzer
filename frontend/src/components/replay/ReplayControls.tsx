@@ -37,7 +37,7 @@ export default function ReplayControls({
 
       {/* Lap slider */}
       <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-        <span className="text-sm text-f1-muted whitespace-nowrap">Lap {currentLap}/{maxLap}</span>
+        <span className="text-sm text-f1-muted whitespace-nowrap tabular-nums transition-all duration-300">Lap {currentLap}/{maxLap}</span>
         <input
           type="range"
           min={1}

@@ -74,8 +74,8 @@ export default function WeatherPanel({ weather, allWeather, currentLap, maxLap }
                 <Tooltip
                   contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px', fontSize: 12 }}
                 />
-                <Line type="monotone" dataKey="air" stroke="#fb923c" strokeWidth={1.5} dot={false} name="Air °C" />
-                <Line type="monotone" dataKey="track" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Track °C" />
+                <Line type="monotone" dataKey="air" stroke="#fb923c" strokeWidth={1.5} dot={false} name="Air °C" isAnimationActive={false} />
+                <Line type="monotone" dataKey="track" stroke="#ef4444" strokeWidth={1.5} dot={false} name="Track °C" isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           )}

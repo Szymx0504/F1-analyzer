@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
 // Recharts not used here — custom tire visualization
-import type { Stint, Driver } from '../../types';
+import type { Stint, Driver, Lap } from '../../types';
 
 interface Props {
   stints: Stint[];
   drivers: Driver[];
+  laps: Lap[];
   maxLap: number;
   currentLap: number;
 }
@@ -18,7 +19,17 @@ const COMPOUND_COLORS: Record<string, string> = {
   UNKNOWN: '#6b7280',
 };
 
-export default function TireStrategy({ stints, drivers, maxLap, currentLap }: Props) {
+export default function TireStrategy({ stints, drivers, laps, maxLap, currentLap }: Props) {
+  // Derive current positions from laps at currentLap
+  const positionMap = useMemo(() => {
+    const map = new Map<number, number>();
+    const currentLapData = laps
+      .filter(l => l.lap_number === currentLap)
+      .sort((a, b) => (a.lap_duration ?? Infinity) - (b.lap_duration ?? Infinity));
+    currentLapData.forEach((l, idx) => map.set(l.driver_number, idx + 1));
+    return map;
+  }, [laps, currentLap]);
+
   const chartData = useMemo(() => {
     return drivers.map(driver => {
       const driverStints = stints
@@ -29,17 +40,20 @@ export default function TireStrategy({ stints, drivers, maxLap, currentLap }: Pr
         compound: s.compound || 'UNKNOWN',
         start: s.lap_start,
         end: Math.min(s.lap_end, currentLap),
-        length: Math.min(s.lap_end, currentLap) - s.lap_start + 1,
-      }));
+        length: Math.max(0, Math.min(s.lap_end, currentLap) - s.lap_start + 1),
+      })).filter(seg => seg.length > 0);
 
       return {
         driver: driver.name_acronym,
         driverNumber: driver.driver_number,
         teamColour: driver.team_colour,
+        position: positionMap.get(driver.driver_number) ?? 99,
         segments,
       };
-    }).filter(d => d.segments.length > 0);
-  }, [stints, drivers, currentLap]);
+    })
+    .filter(d => d.segments.length > 0)
+    .sort((a, b) => a.position - b.position);
+  }, [stints, drivers, currentLap, positionMap]);
 
   return (
     <div className="bg-f1-card rounded-xl border border-f1-border p-4">
@@ -72,6 +86,8 @@ export default function TireStrategy({ stints, drivers, maxLap, currentLap }: Pr
                     backgroundColor: COMPOUND_COLORS[seg.compound] || COMPOUND_COLORS.UNKNOWN,
                     color: seg.compound === 'HARD' ? '#111827' : '#ffffff',
                     marginLeft: i === 0 ? `${(seg.start / maxLap) * 100}%` : 0,
+                    borderRight: '2px solid #111827',
+                    transition: 'width 0.4s ease-in-out, margin-left 0.4s ease-in-out',
                   }}
                 >
                   {seg.length > 5 ? seg.compound[0] : ''}

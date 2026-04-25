@@ -7,21 +7,18 @@ interface Props {
   drivers: Driver[];
   highlightDriver: number | null;
   currentLap: number;
+  maxLap: number;
 }
 
-export default function PositionChart({ laps, drivers, highlightDriver, currentLap }: Props) {
+export default function PositionChart({ laps, drivers, highlightDriver, currentLap, maxLap }: Props) {
   const chartData = useMemo(() => {
-    // Build per-lap position data from lap finishing positions
     const lapNumbers = [...new Set(laps.map(l => l.lap_number))].sort((a, b) => a - b);
     return lapNumbers.map(lapNum => {
       const row: Record<string, number> = { lap: lapNum };
-      const lapEntries = laps
-        .filter(l => l.lap_number === lapNum && l.lap_duration !== null)
+      // Sort drivers by cumulative time to derive position
+      const driversInLap = laps
+        .filter(l => l.lap_number === lapNum)
         .sort((a, b) => (a.lap_duration ?? Infinity) - (b.lap_duration ?? Infinity));
-
-      // Use position based on sorted lap times for this lap
-      // Actually, we need position data. Let's derive from lap ordering per lap number
-      const driversInLap = laps.filter(l => l.lap_number === lapNum);
       driversInLap.forEach((l, idx) => {
         const driver = drivers.find(d => d.driver_number === l.driver_number);
         if (driver) {
@@ -45,6 +42,7 @@ export default function PositionChart({ laps, drivers, highlightDriver, currentL
           <Tooltip
             contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: '8px' }}
             labelStyle={{ color: '#f9fafb' }}
+            formatter={(value: unknown, name: unknown) => [`P${value}`, String(name)]}
           />
           <Legend wrapperStyle={{ fontSize: 11 }} />
           {drivers.map(driver => (
@@ -57,6 +55,7 @@ export default function PositionChart({ laps, drivers, highlightDriver, currentL
               strokeOpacity={highlightDriver && highlightDriver !== driver.driver_number ? 0.2 : 1}
               dot={false}
               connectNulls
+              isAnimationActive={false}
             />
           ))}
         </LineChart>
