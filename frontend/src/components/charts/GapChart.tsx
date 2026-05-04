@@ -19,10 +19,11 @@ interface Props {
     maxLap: number;
 }
 
-const TooltipContent = ({ active, payload, label }: any) => {
+const TooltipContent = ({ active, payload, label, focusedAcronyms, hasFocus }: any) => {
     if (!active || !payload || !payload.length) return null;
     const items = payload
         .filter((p: any) => p.value != null)
+        .filter((p: any) => !hasFocus || focusedAcronyms?.has(p.dataKey))
         .sort((a: any, b: any) => a.value - b.value)
         .slice(0, 20);
     if (!items.length) return null;
@@ -178,7 +179,7 @@ export default function GapChart({
                     <XAxis dataKey="lap" stroke="#6b7280" tick={{ fontSize: 11 }} />
                     <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}s`} />
                     <Tooltip
-                        content={<TooltipContent />}
+                        content={(props: any) => <TooltipContent {...props} focusedAcronyms={hasFocus ? new Set(drivers.filter(d => focusedDrivers.has(d.driver_number)).map(d => d.name_acronym)) : null} hasFocus={hasFocus} />}
                         wrapperStyle={{ zIndex: 50, opacity: 1 }}
                         cursor={{ stroke: "#6b7280", strokeDasharray: "5 5" }}
                     />
@@ -194,7 +195,7 @@ export default function GapChart({
                                 strokeWidth={style.strokeWidth}
                                 strokeOpacity={style.opacity}
                                 dot={false}
-                                activeDot={{ r: 4, fill: color, stroke: "#fff", strokeWidth: 1.5 }}
+                                activeDot={!hasFocus || focusedDrivers.has(driver.driver_number) ? { r: 4, fill: color, stroke: "#fff", strokeWidth: 1.5 } : false}
                                 connectNulls
                                 isAnimationActive={false}
                             />
