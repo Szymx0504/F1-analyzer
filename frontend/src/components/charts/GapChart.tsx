@@ -201,49 +201,47 @@ export default function GapChart({
                 </LineChart>
             </ResponsiveContainer>
 
-            {/* Team-grouped driver legend */}
-            <div className="mt-3 flex flex-col gap-1.5">
+            {/* Team-grouped driver legend — one column per team */}
+            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
                 {teamGroups.map((group) => {
                     const teamColor = `#${group.teamColour}`;
                     return (
-                        <div key={group.teamColour} className="flex items-center gap-2">
+                        <div key={group.teamColour} className="flex flex-col gap-1">
                             {/* Team name */}
                             <span
-                                className="text-[10px] font-semibold uppercase tracking-wide shrink-0"
-                                style={{ width: 80, color: teamColor, opacity: 0.85 }}
+                                className="text-[10px] font-semibold uppercase tracking-wide"
+                                style={{ color: teamColor, opacity: 0.85 }}
                             >
                                 {group.teamName}
                             </span>
-                            {/* Driver buttons */}
-                            <div className="flex gap-1 flex-wrap">
-                                {group.drivers.map((driver) => {
-                                    const color = `#${driver.team_colour || "ffffff"}`;
-                                    const focused = focusedDrivers.has(driver.driver_number);
-                                    const dimmed = hasFocus && !focused;
-                                    return (
-                                        <button
-                                            key={driver.driver_number}
-                                            onClick={() => toggleDriver(driver.driver_number)}
-                                            className="flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold transition-all"
-                                            style={{
-                                                fontSize: 11,
-                                                border: `1.5px solid ${focused ? color : "#2d3748"}`,
-                                                backgroundColor: focused ? `${color}20` : "transparent",
-                                                color: dimmed ? "#374151" : color,
-                                                opacity: dimmed ? 0.5 : 1,
-                                                transition: "all 0.15s ease",
-                                                cursor: "pointer",
-                                            }}
-                                        >
-                                            <span
-                                                className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                                style={{ backgroundColor: dimmed ? "#374151" : color }}
-                                            />
-                                            {driver.name_acronym}
-                                        </button>
-                                    );
-                                })}
-                            </div>
+                            {/* Driver buttons stacked vertically */}
+                            {group.drivers.map((driver) => {
+                                const color = `#${driver.team_colour || "ffffff"}`;
+                                const focused = focusedDrivers.has(driver.driver_number);
+                                const dimmed = hasFocus && !focused;
+                                return (
+                                    <button
+                                        key={driver.driver_number}
+                                        onClick={() => toggleDriver(driver.driver_number)}
+                                        className="flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold transition-all"
+                                        style={{
+                                            fontSize: 11,
+                                            border: `1.5px solid ${focused ? color : "#2d3748"}`,
+                                            backgroundColor: focused ? `${color}20` : "transparent",
+                                            color: dimmed ? "#374151" : color,
+                                            opacity: dimmed ? 0.5 : 1,
+                                            transition: "all 0.15s ease",
+                                            cursor: "pointer",
+                                        }}
+                                    >
+                                        <span
+                                            className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
+                                            style={{ backgroundColor: dimmed ? "#374151" : color }}
+                                        />
+                                        {driver.full_name?.split(" ").slice(-1)[0] ?? driver.name_acronym}
+                                    </button>
+                                );
+                            })}
                         </div>
                     );
                 })}

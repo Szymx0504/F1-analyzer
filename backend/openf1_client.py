@@ -4,11 +4,18 @@ Docs: https://openf1.org
 """
 
 import asyncio
+import os
 import httpx
 from cachetools import TTLCache
+from dotenv import load_dotenv
 from typing import Any
 
+load_dotenv()
+
 BASE_URL = "https://api.openf1.org/v1"
+OPENF1_API_KEY = os.getenv("OPENF1_API_KEY")
+OPENF1_API_KEY_HEADER = os.getenv("OPENF1_API_KEY_HEADER", "Authorization")
+OPENF1_API_KEY_QUERY_PARAM = os.getenv("OPENF1_API_KEY_QUERY_PARAM")
 
 # Cache: max 512 entries, 5-minute TTL for historical data
 _cache: TTLCache = TTLCache(maxsize=512, ttl=300)
@@ -29,7 +36,13 @@ RETRY_BACKOFF = [1.0, 3.0, 6.0]
 def _get_client() -> httpx.AsyncClient:
     global _client
     if _client is None or _client.is_closed:
-        _client = httpx.AsyncClient(timeout=30.0)
+        headers = {
+            "Accept": "application/json",
+            "User-Agent": "F1 Analyzer Backend/1.0",
+        }
+        if OPENF1_API_KEY and not OPENF1_API_KEY_QUERY_PARAM:
+            headers[OPENF1_API_KEY_HEADER] = f"Bearer {OPENF1_API_KEY}"
+        _client = httpx.AsyncClient(timeout=30.0, headers=headers)
     return _client
 
 
@@ -48,13 +61,22 @@ async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool
 
         client = _get_client()
         for attempt in range(MAX_RETRIES):
-            resp = await client.get(f"{BASE_URL}{endpoint}", params=params)
+            request_params = dict(params or {})
+            if OPENF1_API_KEY and OPENF1_API_KEY_QUERY_PARAM:
+                request_params[OPENF1_API_KEY_QUERY_PARAM] = OPENF1_API_KEY
+            resp = await client.get(f"{BASE_URL}{endpoint}", params=request_params)
             if resp.status_code == 429:
                 wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
                 print(
                     f"[OpenF1] 429 rate-limited on {endpoint}, retrying in {wait}s (attempt {attempt+1})")
                 await asyncio.sleep(wait)
                 continue
+            if resp.status_code == 401:
+                raise httpx.HTTPStatusError(
+                    f"Unauthorized access to OpenF1: {resp.text}",
+                    request=resp.request,
+                    response=resp,
+                )
             resp.raise_for_status()
             data = resp.json()
             cache[key] = data

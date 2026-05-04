@@ -3,8 +3,10 @@ F1 Analyzer — FastAPI Backend
 Serves OpenF1 data via REST + WebSocket for race replay.
 """
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+import httpx
 import json
 
 from openf1_client import (
@@ -32,6 +34,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.exception_handler(httpx.HTTPStatusError)
+async def openf1_http_error(request: Request, exc: httpx.HTTPStatusError):
+    status_code = 502
+    detail = "OpenF1 API request failed."
+    if exc.response is not None:
+        body = exc.response.text
+        if exc.response.status_code == 401:
+            detail = "OpenF1 API returned 401 Unauthorized. Check OPENF1_API_KEY and service availability."
+        else:
+            detail = f"OpenF1 API returned {exc.response.status_code}."
+        return JSONResponse(status_code=status_code, content={"error": detail, "body": body})
+    return JSONResponse(status_code=status_code, content={"error": detail})
 
 
 # ─── Health ──────────────────────────────────────────────────────────

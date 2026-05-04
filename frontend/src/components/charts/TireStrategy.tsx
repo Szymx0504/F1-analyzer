@@ -119,15 +119,13 @@ function sanitiseStints(
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function TireStrategy({ stints, drivers, laps, maxLap, currentLap }: Props) {
-  // Derive current positions from laps at currentLap (for row ordering)
+  // Position order comes from the `drivers` prop, which is already sorted by
+  // current race position in the parent (RaceReplay → sortedDrivers).
   const positionMap = useMemo(() => {
     const map = new Map<number, number>();
-    const currentLapData = laps
-      .filter(l => l.lap_number === currentLap)
-      .sort((a, b) => (a.lap_duration ?? Infinity) - (b.lap_duration ?? Infinity));
-    currentLapData.forEach((l, idx) => map.set(l.driver_number, idx + 1));
+    drivers.forEach((d, idx) => map.set(d.driver_number, idx + 1));
     return map;
-  }, [laps, currentLap]);
+  }, [drivers]);
 
   // raceTotalLaps = absolute max lap in full dataset
   const raceTotalLaps = useMemo(
