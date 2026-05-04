@@ -1,120 +1,255 @@
-import { useState, useMemo } from 'react';
-import { api } from '../lib/api';
-import { useApi } from '../hooks/useApi';
-// types used implicitly via component props
-import DriverStandings from '../components/tables/DriverStandings';
-import SectorHeatmap from '../components/charts/SectorHeatmap';
+import { useState, useEffect } from "react";
+import { api } from "../lib/api";
+import { useApi } from "../hooks/useApi";
+import type { Driver, Position } from "../types";
+import RaceResultTable from "../components/charts/RaceResultTable";
+import DriverChampionshipTable from "../components/charts/DriverChampionshipTable";
+import ConstructorChampionshipTable from "../components/charts/ConstructorChampionshipTable";
+import SeasonGrid from "../components/charts/SeasonGrid";
+
+interface Session {
+    session_key: number;
+    session_name: string;
+    session_type: string;
+    country_name: string;
+    circuit_short_name: string;
+    date_start: string;
+    year: number;
+}
+
+function Card({
+    title,
+    children,
+    className = "",
+}: {
+    title: string;
+    children: React.ReactNode;
+    className?: string;
+}) {
+    return (
+        <div
+            className={`bg-f1-card rounded-xl border border-f1-border p-4 ${className}`}
+        >
+            <h3 className="text-sm font-semibold text-f1-muted uppercase tracking-wide mb-4">
+                {title}
+            </h3>
+            {children}
+        </div>
+    );
+}
 
 export default function SeasonOverview() {
-  const [year, setYear] = useState(2024);
-  const [selectedSession, setSelectedSession] = useState<number | null>(null);
-  const [selectedDriver, setSelectedDriver] = useState<number | null>(null);
+    const currentYear = new Date().getFullYear();
+    const years = [2025, 2024, 2023].filter((y) => y <= currentYear);
 
-  const { data: sessions, loading: sessionsLoading } = useApi(
-    () => api.getSessions(year, 'Race'),
-    [year]
-  );
+    const [year, setYear] = useState<number>(years[0]);
+    const [selectedSessionKey, setSelectedSessionKey] = useState<number | null>(
+        null,
+    );
 
-  const { data: drivers } = useApi(
-    () => (selectedSession ? api.getDrivers(selectedSession) : Promise.resolve([])),
-    [selectedSession]
-  );
+    const { data: raceSessions, loading: sessionsLoading } = useApi<Session[]>(
+        () => api.getSessions(year, "Race"),
+        [year],
+    );
 
-  const { data: laps } = useApi(
-    () => (selectedSession ? api.getLaps(selectedSession) : Promise.resolve([])),
-    [selectedSession]
-  );
+    useEffect(() => {
+        if (!raceSessions?.length) return;
+        const today = new Date().toISOString();
+        const past = raceSessions.filter((s) => s.date_start <= today);
+        const target = past.length ? past[past.length - 1] : raceSessions[0];
+        setSelectedSessionKey(target.session_key);
+    }, [raceSessions]);
 
-  // Unique drivers
-  const uniqueDrivers = useMemo(() => {
-    if (!drivers) return [];
-    const seen = new Set<number>();
-    return drivers.filter(d => {
-      if (seen.has(d.driver_number)) return false;
-      seen.add(d.driver_number);
-      return true;
-    });
-  }, [drivers]);
+    const { data: selectedDrivers } = useApi<Driver[]>(
+        () =>
+            selectedSessionKey
+                ? api.getDrivers(selectedSessionKey)
+                : Promise.resolve([]),
+        [selectedSessionKey],
+    );
 
-  // Auto-select first session
-  useMemo(() => {
-    if (sessions?.length && !selectedSession) {
-      setSelectedSession(sessions[sessions.length - 1].session_key);
-    }
-  }, [sessions, selectedSession]);
+    const { data: selectedPositions } = useApi<Position[]>(
+        () =>
+            selectedSessionKey
+                ? api.getPosition(selectedSessionKey)
+                : Promise.resolve([]),
+        [selectedSessionKey],
+    );
 
-  return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-center gap-4">
-        <h1 className="text-2xl font-bold">Season Overview</h1>
+    const [allPositions, setAllPositions] = useState<Map<number, Position[]>>(
+        new Map(),
+    );
+    const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
 
-        <select
-          value={year}
-          onChange={e => { setYear(Number(e.target.value)); setSelectedSession(null); }}
-          className="bg-f1-card border border-f1-border rounded-lg px-3 py-2 text-sm"
-        >
-          {[2025, 2024, 2023].map(y => (
-            <option key={y} value={y}>{y}</option>
-          ))}
-        </select>
+    useEffect(() => {
+        if (!raceSessions?.length || !selectedSessionKey) return;
+        const today = new Date().toISOString();
+        const idx = raceSessions.findIndex(
+            (s) => s.session_key === selectedSessionKey,
+        );
+        const targetRaces = raceSessions
+            .slice(0, idx + 1)
+            .filter((s) => s.date_start <= today);
 
-        <select
-          value={selectedSession ?? ''}
-          onChange={e => setSelectedSession(Number(e.target.value))}
-          className="bg-f1-card border border-f1-border rounded-lg px-3 py-2 text-sm min-w-[200px]"
-        >
-          <option value="">Select Race...</option>
-          {sessions?.map(s => (
-            <option key={s.session_key} value={s.session_key}>
-              {s.circuit_short_name} — {s.country_name}
-            </option>
-          ))}
-        </select>
-      </div>
+        let cancelled = false;
+        const posMap = new Map<number, Position[]>();
+        const driverSet = new Map<number, Driver>();
 
-      {/* Race calendar */}
-      <div className="bg-f1-card rounded-xl border border-f1-border p-4">
-        <h2 className="text-lg font-semibold mb-3">Race Calendar — {year}</h2>
-        {sessionsLoading ? (
-          <p className="text-f1-muted">Loading...</p>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
-            {sessions?.map(s => (
-              <button
-                key={s.session_key}
-                onClick={() => setSelectedSession(s.session_key)}
-                className={`text-left p-3 rounded-lg border transition-colors ${
-                  selectedSession === s.session_key
-                    ? 'border-f1-red bg-f1-red/10'
-                    : 'border-f1-border hover:border-f1-muted'
-                }`}
-              >
-                <p className="font-medium text-sm">{s.country_name}</p>
-                <p className="text-xs text-f1-muted">{s.circuit_short_name}</p>
-                <p className="text-xs text-f1-muted mt-1">
-                  {new Date(s.date_start).toLocaleDateString()}
-                </p>
-              </button>
-            ))}
-          </div>
-        )}
-      </div>
+        Promise.all(
+            targetRaces.map(async (race) => {
+                const [pos, drv] = await Promise.all([
+                    api.getPosition(race.session_key),
+                    api.getDrivers(race.session_key),
+                ]);
+                posMap.set(race.session_key, pos ?? []);
+                (drv ?? []).forEach((d: Driver) => {
+                    if (!driverSet.has(d.driver_number))
+                        driverSet.set(d.driver_number, d);
+                });
+            }),
+        ).then(() => {
+            if (cancelled) return;
+            setAllPositions(new Map(posMap));
+            setAllDrivers(Array.from(driverSet.values()));
+        });
 
-      {selectedSession && laps && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <DriverStandings
-            laps={laps}
-            drivers={uniqueDrivers}
-            selectedDriver={selectedDriver}
-            onSelectDriver={setSelectedDriver}
-          />
-          <SectorHeatmap
-            laps={laps}
-            drivers={uniqueDrivers}
-            highlightDriver={selectedDriver}
-          />
+        return () => {
+            cancelled = true;
+        };
+    }, [raceSessions, selectedSessionKey]);
+
+    const selectedSession = raceSessions?.find(
+        (s) => s.session_key === selectedSessionKey,
+    );
+
+    const uniqueSelectedDrivers = selectedDrivers
+        ? selectedDrivers.filter(
+              (d, i, arr) =>
+                  arr.findIndex((x) => x.driver_number === d.driver_number) ===
+                  i,
+          )
+        : [];
+
+    return (
+        <div className="space-y-6">
+            <div className="flex flex-wrap items-center gap-4">
+                <h1 className="text-2xl font-bold">Season Overview</h1>
+
+                <select
+                    value={year}
+                    onChange={(e) => {
+                        setYear(Number(e.target.value));
+                        setSelectedSessionKey(null);
+                    }}
+                    className="bg-f1-card border border-f1-border rounded-lg px-3 py-2 text-sm"
+                >
+                    {years.map((y) => (
+                        <option key={y} value={y}>
+                            {y}
+                        </option>
+                    ))}
+                </select>
+
+                <select
+                    value={selectedSessionKey ?? ""}
+                    onChange={(e) =>
+                        setSelectedSessionKey(Number(e.target.value))
+                    }
+                    className="bg-f1-card border border-f1-border rounded-lg px-3 py-2 text-sm min-w-[220px]"
+                    disabled={!raceSessions?.length}
+                >
+                    <option value="">Select Race…</option>
+                    {raceSessions?.map((s) => (
+                        <option key={s.session_key} value={s.session_key}>
+                            {s.circuit_short_name} — {s.country_name}
+                        </option>
+                    ))}
+                </select>
+
+                {selectedSession && (
+                    <span className="text-f1-muted text-sm">
+                        {new Date(
+                            selectedSession.date_start,
+                        ).toLocaleDateString(undefined, {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                        })}
+                    </span>
+                )}
+            </div>
+
+            {sessionsLoading && (
+                <p className="text-f1-muted text-sm">Loading sessions…</p>
+            )}
+
+            {selectedSessionKey && (
+                <>
+                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                        <Card
+                            title={`Race Result — ${selectedSession?.circuit_short_name ?? ""}${selectedSession?.country_name ? ` · ${selectedSession.country_name}` : ""}`}
+                        >
+                            {selectedPositions &&
+                            uniqueSelectedDrivers.length ? (
+                                <RaceResultTable
+                                    positions={selectedPositions}
+                                    drivers={uniqueSelectedDrivers}
+                                />
+                            ) : (
+                                <p className="text-f1-muted text-sm">
+                                    Loading…
+                                </p>
+                            )}
+                        </Card>
+
+                        <Card
+                            title={`Driver Championship — ${year} (after ${selectedSession?.circuit_short_name ?? "…"})`}
+                        >
+                            {allDrivers.length && allPositions.size ? (
+                                <DriverChampionshipTable
+                                    allDrivers={allDrivers}
+                                    allPositions={allPositions}
+                                />
+                            ) : (
+                                <p className="text-f1-muted text-sm">
+                                    Loading…
+                                </p>
+                            )}
+                        </Card>
+                    </div>
+
+                    <Card
+                        title={`Constructor Championship — ${year} (after ${selectedSession?.circuit_short_name ?? "…"})`}
+                    >
+                        {allDrivers.length && allPositions.size ? (
+                            <ConstructorChampionshipTable
+                                allDrivers={allDrivers}
+                                allPositions={allPositions}
+                            />
+                        ) : (
+                            <p className="text-f1-muted text-sm">Loading…</p>
+                        )}
+                    </Card>
+
+                    <Card
+                        title={`Season Results Grid — ${year}`}
+                        className="overflow-hidden"
+                    >
+                        {allDrivers.length && allPositions.size ? (
+                            <SeasonGrid
+                                raceSessions={raceSessions ?? []}
+                                allPositions={allPositions}
+                                allDrivers={allDrivers}
+                                selectedSessionKey={selectedSessionKey}
+                            />
+                        ) : (
+                            <p className="text-f1-muted text-sm">
+                                Loading race data…
+                            </p>
+                        )}
+                    </Card>
+                </>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }

@@ -46,17 +46,15 @@ def _get_client() -> httpx.AsyncClient:
     return _client
 
 
-async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool = False) -> list[dict]:
-    """Fetch from OpenF1 API with caching, rate-limit protection, and retries."""
+async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool = False, bypass_cache: bool = False) -> list[dict]:
     cache = _live_cache if live else _cache
     key = f"{endpoint}:{sorted(params.items()) if params else ''}"
 
-    if key in cache:
+    if not bypass_cache and key in cache:
         return cache[key]
 
     async with _semaphore:
-        # Double-check cache after acquiring semaphore (another request may have filled it)
-        if key in cache:
+        if not bypass_cache and key in cache:
             return cache[key]
 
         client = _get_client()
@@ -82,7 +80,6 @@ async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool
             cache[key] = data
             return data
 
-    # All retries exhausted
     raise httpx.HTTPStatusError(
         f"Rate-limited after {MAX_RETRIES} retries on {endpoint}",
         request=httpx.Request("GET", f"{BASE_URL}{endpoint}"),
@@ -123,11 +120,16 @@ async def get_laps(session_key: int, driver_number: int | None = None) -> list[d
 
 # ─── Position ────────────────────────────────────────────────────────
 
-async def get_position(session_key: int, driver_number: int | None = None) -> list[dict]:
+async def get_position(session_key: int, driver_number: int | None = None, fresh: bool = True) -> list[dict]:
     params: dict[str, Any] = {"session_key": session_key}
     if driver_number:
         params["driver_number"] = driver_number
-    return await _fetch("/position", params)
+    data = await _fetch("/position", params, bypass_cache=fresh)
+    if data and not driver_number:
+        print(f"[OpenF1] Position data for session {session_key}: {len(data)} records")
+        if data:
+            print(f"[OpenF1] Sample: {data[-1]}")
+    return data
 
 
 # ─── Car Data (telemetry) ────────────────────────────────────────────

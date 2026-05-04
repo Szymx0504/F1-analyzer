@@ -98,8 +98,8 @@ async def laps(session_key: int, driver_number: int | None = None):
 # ─── Position ────────────────────────────────────────────────────────
 
 @app.get("/api/sessions/{session_key}/position")
-async def position(session_key: int, driver_number: int | None = None):
-    return await get_position(session_key, driver_number)
+async def position(session_key: int, driver_number: int | None = None, fresh: bool = True):
+    return await get_position(session_key, driver_number, fresh)
 
 
 # ─── Car Data (telemetry) ────────────────────────────────────────────
