@@ -28,8 +28,8 @@ const TooltipContent = ({ active, payload, label }: any) => {
     if (!items.length) return null;
     return (
         <div
-            className="rounded-lg border border-[#4b5563] bg-[#0a0e14] p-3 text-white shadow-2xl"
-            style={{ minWidth: 160 }}
+            className="rounded-lg border border-[#4b5563] p-3 text-white shadow-2xl"
+            style={{ backgroundColor: "#0a0e14", minWidth: 160 }}
         >
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
                 Lap {label}
@@ -171,6 +171,7 @@ export default function GapChart({
                 )}
             </div>
 
+            <div style={{ position: "relative", zIndex: 1 }}>
             <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
                     <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
@@ -178,6 +179,7 @@ export default function GapChart({
                     <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}s`} />
                     <Tooltip
                         content={<TooltipContent />}
+                        wrapperStyle={{ zIndex: 50, opacity: 1 }}
                         cursor={{ stroke: "#6b7280", strokeDasharray: "5 5" }}
                     />
                     {drivers.map((driver) => {
@@ -200,9 +202,13 @@ export default function GapChart({
                     })}
                 </LineChart>
             </ResponsiveContainer>
+            </div>
 
             {/* Team-grouped driver legend — one column per team */}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            <div
+                className="mt-3 grid gap-x-4 gap-y-3"
+                style={{ gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))` }}
+            >
                 {teamGroups.map((group) => {
                     const teamColor = `#${group.teamColour}`;
                     return (

@@ -30,8 +30,8 @@ const TooltipContent = ({ active, payload, label }: any) => {
     if (!items.length) return null;
     return (
         <div
-            className="rounded-lg border border-[#4b5563] bg-[#0a0e14] p-3 text-white shadow-2xl"
-            style={{ minWidth: 160 }}
+            className="rounded-lg border border-[#4b5563] p-3 text-white shadow-2xl"
+            style={{ backgroundColor: "#0a0e14", minWidth: 160 }}
         >
             <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
                 Lap {label}
@@ -181,12 +181,27 @@ export default function PositionChart({
     const edgePositions = useMemo(() => {
         if (!chartData.length) return new Map<string, { leftPos: number | null; rightPos: number | null }>();
         const first = chartData[0];
-        const last = chartData[chartData.length - 1];
+        const lastLap = chartData[chartData.length - 1].lap as number;
+        // A driver is considered a finisher if their last recorded lap is within
+        // 3 laps of the final lap in the dataset (handles sparse data at race end).
+        const DNF_THRESHOLD = 3;
         const map = new Map<string, { leftPos: number | null; rightPos: number | null }>();
         drivers.forEach((d) => {
+            let rightPos: number | null = null;
+            let rightLap: number | null = null;
+            for (let i = chartData.length - 1; i >= 0; i--) {
+                const val = chartData[i][d.name_acronym];
+                if (val != null) {
+                    rightPos = val as number;
+                    rightLap = chartData[i].lap as number;
+                    break;
+                }
+            }
+            // Only show right label for drivers who finished (last lap close to race end)
+            const finished = rightLap != null && lastLap - rightLap <= DNF_THRESHOLD;
             map.set(d.name_acronym, {
                 leftPos: (first[d.name_acronym] as number) ?? null,
-                rightPos: (last[d.name_acronym] as number) ?? null,
+                rightPos: finished ? rightPos : null,
             });
         });
         return map;
@@ -233,7 +248,7 @@ export default function PositionChart({
             </div>
 
             {/* Chart area with absolute-positioned side labels */}
-            <div className="relative" style={{ height: CHART_HEIGHT }}>
+            <div className="relative" style={{ height: CHART_HEIGHT, zIndex: 1 }}>
 
                 {/* LEFT labels */}
                 <div
@@ -364,7 +379,10 @@ export default function PositionChart({
             </div>
 
             {/* Team-grouped driver legend — one column per team */}
-            <div className="mt-3 flex flex-wrap gap-x-4 gap-y-2">
+            <div
+                className="mt-3 grid gap-x-4 gap-y-3"
+                style={{ gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))` }}
+            >
                 {teamGroups.map((group) => {
                     const teamColor = `#${group.teamColour}`;
                     return (
