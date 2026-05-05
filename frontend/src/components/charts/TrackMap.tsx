@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { api } from "../../lib/api";
 import type {
-  Driver,
-  Interval,
-  Lap,
-  Position,
-  Stint,
-  TrackMapData,
+    Driver,
+    Interval,
+    Lap,
+    Position,
+    Stint,
+    TrackMapData,
 } from "../../types";
 
 interface Props {
