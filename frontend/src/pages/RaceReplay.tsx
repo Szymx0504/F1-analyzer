@@ -52,6 +52,8 @@ export default function RaceReplay() {
                 const weather = await api.getWeather(sessionKey!);
                 if (cancelled) return;
                 const intervals = await api.getIntervals(sessionKey!);
+                if (cancelled) return;
+                const raceControl = await api.getRaceControl(sessionKey!);
                 if (!cancelled) {
                     setRaceData({
                         type: "full_race_data",
@@ -60,6 +62,7 @@ export default function RaceReplay() {
                         stints,
                         weather,
                         intervals,
+                        raceControl,
                     });
                     setCurrentLap(1);
                     setIsPlaying(false);
@@ -248,6 +251,8 @@ export default function RaceReplay() {
                         laps={raceData.laps}
                         positions={raceData.positions}
                         stints={raceData.stints}
+                        raceControl={raceData.raceControl}
+                        weather={raceData.weather}
                         drivers={uniqueDrivers}
                         currentLap={currentLap}
                         maxLap={maxLap}

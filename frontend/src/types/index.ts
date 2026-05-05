@@ -136,6 +136,17 @@ export interface Weather {
     date: string;
 }
 
+export interface RaceControlMessage {
+  date: string;
+  session_key: number;
+  category: string;
+  flag?: string;
+  message: string;
+  scope?: string;
+  driver_number?: number;
+  lap_number?: number;
+}
+
 export interface LocationPoint {
     session_key: number;
     driver_number: number;
@@ -163,12 +174,13 @@ export interface LapFrame {
 }
 
 export interface FullRaceData {
-    type: "full_race_data";
-    laps: Lap[];
-    positions: Position[];
-    stints: Stint[];
-    weather: Weather[];
-    intervals: Interval[];
+  type: 'full_race_data';
+  laps: Lap[];
+  positions: Position[];
+  stints: Stint[];
+  weather: Weather[];
+  intervals: Interval[];
+  raceControl: RaceControlMessage[];
 }
 
 export interface SessionInfo {

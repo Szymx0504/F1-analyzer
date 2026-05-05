@@ -402,6 +402,7 @@ export default function TrackMap({
     tyre: string;
     tyreAge: number;
     pits: number;
+    hasFastestLap: boolean;
   }
 
   const standings = useMemo((): Standing[] => {
@@ -467,6 +468,18 @@ export default function TrackMap({
         pitOut.add(l.driver_number);
     }
 
+    // Fastest lap: find the driver with the best lap time up to currentLap
+    let fastestDriver: number | null = null;
+    let fastestTime = Infinity;
+    for (const l of laps) {
+      if (l.lap_number <= currentLap && l.lap_duration && l.lap_duration > 0) {
+        if (l.lap_duration < fastestTime) {
+          fastestTime = l.lap_duration;
+          fastestDriver = l.driver_number;
+        }
+      }
+    }
+
     // Build
     const result: Standing[] = [];
     for (const drv of drivers) {
@@ -492,6 +505,7 @@ export default function TrackMap({
         tyre: tyre?.compound ?? "",
         tyreAge: tyre?.age ?? 0,
         pits: driverPits.get(drv.driver_number) ?? 0,
+        hasFastestLap: drv.driver_number === fastestDriver,
       });
     }
     result.sort((a, b) => a.position - b.position);
@@ -723,6 +737,16 @@ export default function TrackMap({
                   <span className="font-bold text-white text-[11px] tracking-wide w-8 shrink-0">
                     {s.driver.name_acronym}
                   </span>
+                  {/* Fastest lap indicator */}
+                  {s.hasFastestLap && (
+                    <span
+                      className="text-[9px] shrink-0"
+                      style={{ color: "#a855f7" }}
+                      title="Fastest Lap"
+                    >
+                      ⏱
+                    </span>
+                  )}
                   {/* Status badge */}
                   {s.status !== "ON TRACK" && (
                     <span

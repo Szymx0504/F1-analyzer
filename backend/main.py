@@ -23,6 +23,7 @@ from openf1_client import (
     get_pit_stops,
     get_stints,
     get_intervals,
+    get_race_control,
     get_weather,
     get_location,
     get_latest_session,
@@ -245,6 +246,13 @@ async def stints(session_key: int, driver_number: int | None = None):
 @app.get("/api/sessions/{session_key}/intervals")
 async def intervals(session_key: int, driver_number: int | None = None):
     return await get_intervals(session_key, driver_number)
+
+
+# ─── Race Control (flags, SC, VSC) ──────────────────────────────────
+
+@app.get("/api/sessions/{session_key}/race_control")
+async def race_control(session_key: int):
+    return await get_race_control(session_key)
 
 
 # ─── Weather ─────────────────────────────────────────────────────────

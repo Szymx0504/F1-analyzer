@@ -126,7 +126,8 @@ async def get_position(session_key: int, driver_number: int | None = None, fresh
         params["driver_number"] = driver_number
     data = await _fetch("/position", params, bypass_cache=fresh)
     if data and not driver_number:
-        print(f"[OpenF1] Position data for session {session_key}: {len(data)} records")
+        print(
+            f"[OpenF1] Position data for session {session_key}: {len(data)} records")
         if data:
             print(f"[OpenF1] Sample: {data[-1]}")
     return data
@@ -200,6 +201,12 @@ async def get_intervals(session_key: int, driver_number: int | None = None) -> l
     if driver_number:
         params["driver_number"] = driver_number
     return await _fetch("/intervals", params)
+
+
+# ─── Race Control (flags, safety cars, etc.) ─────────────────────────
+
+async def get_race_control(session_key: int) -> list[dict]:
+    return await _fetch("/race_control", {"session_key": session_key})
 
 
 # ─── Weather ─────────────────────────────────────────────────────────

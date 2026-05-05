@@ -1,3 +1,4 @@
+import type { Session, Driver, Lap, Position, CarData, PitStop, Stint, Interval, Weather, LocationPoint, TrackMapData, RaceControlMessage } from '../types';
 import type {
     Session,
     Driver,
@@ -24,90 +25,71 @@ async function fetchJson<T>(url: string): Promise<T> {
 }
 
 export const api = {
-    // Sessions
-    getSessions: (year?: number, sessionType?: string) => {
-        const params = new URLSearchParams();
-        if (year) params.set("year", String(year));
-        if (sessionType) params.set("session_type", sessionType);
-        const qs = params.toString();
-        return fetchJson<Session[]>(`/sessions${qs ? `?${qs}` : ""}`);
-    },
+  // Sessions
+  getSessions: (year?: number, sessionType?: string) => {
+    const params = new URLSearchParams();
+    if (year) params.set('year', String(year));
+    if (sessionType) params.set('session_type', sessionType);
+    const qs = params.toString();
+    return fetchJson<Session[]>(`/sessions${qs ? `?${qs}` : ''}`);
+  },
 
-    getSession: (sessionKey: number) =>
-        fetchJson<Session>(`/sessions/${sessionKey}`),
+  getSession: (sessionKey: number) =>
+    fetchJson<Session>(`/sessions/${sessionKey}`),
 
-    // Drivers
-    getDrivers: (sessionKey: number) =>
-        fetchJson<Driver[]>(`/sessions/${sessionKey}/drivers`),
+  // Drivers
+  getDrivers: (sessionKey: number) =>
+    fetchJson<Driver[]>(`/sessions/${sessionKey}/drivers`),
 
-    // Laps
-    getLaps: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<Lap[]>(`/sessions/${sessionKey}/laps${qs}`);
-    },
+  // Laps
+  getLaps: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<Lap[]>(`/sessions/${sessionKey}/laps${qs}`);
+  },
 
-    // Position
-    getPosition: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<Position[]>(`/sessions/${sessionKey}/position${qs}`);
-    },
+  // Position
+  getPosition: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<Position[]>(`/sessions/${sessionKey}/position${qs}`);
+  },
 
-    getSessionResult: (sessionKey: number, maxPosition?: number) => {
-        const params = new URLSearchParams();
-        if (maxPosition) params.set("position<=", String(maxPosition));
-        const qs = params.toString();
-        return fetchJson<SessionResultRow[]>(
-            `/sessions/${sessionKey}/result${qs ? `?${qs}` : ""}`,
-        );
-    },
+  // Car data (telemetry)
+  getCarData: (sessionKey: number, driverNumber: number) =>
+    fetchJson<CarData[]>(`/sessions/${sessionKey}/car_data/${driverNumber}`),
 
-    getDriverChampionship: (sessionKey: number) =>
-        fetchJson<DriverChampionshipEntry[]>(
-            `/championship/drivers?session_key=${sessionKey}`,
-        ),
+  // Pit stops
+  getPitStops: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<PitStop[]>(`/sessions/${sessionKey}/pit_stops${qs}`);
+  },
 
-    getConstructorChampionship: (sessionKey: number) =>
-        fetchJson<ConstructorChampionshipEntry[]>(
-            `/championship/teams?session_key=${sessionKey}`,
-        ),
+  // Stints
+  getStints: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<Stint[]>(`/sessions/${sessionKey}/stints${qs}`);
+  },
 
-    // Car data (telemetry)
-    getCarData: (sessionKey: number, driverNumber: number) =>
-        fetchJson<CarData[]>(
-            `/sessions/${sessionKey}/car_data/${driverNumber}`,
-        ),
+  // Intervals
+  getIntervals: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<Interval[]>(`/sessions/${sessionKey}/intervals${qs}`);
+  },
 
-    // Pit stops
-    getPitStops: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<PitStop[]>(`/sessions/${sessionKey}/pit_stops${qs}`);
-    },
+  // Weather
+  getWeather: (sessionKey: number) =>
+    fetchJson<Weather[]>(`/sessions/${sessionKey}/weather`),
 
-    // Stints
-    getStints: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<Stint[]>(`/sessions/${sessionKey}/stints${qs}`);
-    },
+  // Location
+  getLocation: (sessionKey: number, driverNumber?: number) => {
+    const qs = driverNumber ? `?driver_number=${driverNumber}` : '';
+    return fetchJson<LocationPoint[]>(`/sessions/${sessionKey}/location${qs}`);
+  },
 
-    // Intervals
-    getIntervals: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<Interval[]>(`/sessions/${sessionKey}/intervals${qs}`);
-    },
+  // Race Control (flags, safety cars)
+  getRaceControl: (sessionKey: number) =>
+    fetchJson<RaceControlMessage[]>(`/sessions/${sessionKey}/race_control`),
 
-    // Weather
-    getWeather: (sessionKey: number) =>
-        fetchJson<Weather[]>(`/sessions/${sessionKey}/weather`),
-
-    // Location
-    getLocation: (sessionKey: number, driverNumber?: number) => {
-        const qs = driverNumber ? `?driver_number=${driverNumber}` : "";
-        return fetchJson<LocationPoint[]>(
-            `/sessions/${sessionKey}/location${qs}`,
-        );
-    },
-
-    // Track map (downsampled locations for all drivers + outline)
-    getTrackMap: (sessionKey: number) =>
-        fetchJson<TrackMapData>(`/sessions/${sessionKey}/track_map`),
+  // Track map (downsampled locations for all drivers + outline)
+  getTrackMap: (sessionKey: number) =>
+    fetchJson<TrackMapData>(`/sessions/${sessionKey}/track_map`),
 };
