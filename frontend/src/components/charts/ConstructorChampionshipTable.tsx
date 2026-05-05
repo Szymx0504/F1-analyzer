@@ -1,9 +1,14 @@
 import { useMemo } from "react";
-import type { Driver, Position } from "../../types";
+import type {
+    Driver,
+    Position,
+    ConstructorChampionshipEntry,
+} from "../../types";
 
 interface ConstructorChampionshipTableProps {
-    allDrivers: Driver[];
-    allPositions: Map<number, Position[]>;
+    allDrivers?: Driver[];
+    allPositions?: Map<number, Position[]>;
+    standings?: ConstructorChampionshipEntry[];
 }
 
 const POINTS_MAP: Record<number, number> = {
@@ -24,11 +29,40 @@ function positionPoints(pos: number): number {
 }
 
 export default function ConstructorChampionshipTable({
-    allDrivers,
+    allDrivers = [],
     allPositions,
+    standings,
 }: ConstructorChampionshipTableProps) {
     const constructorChampionship = useMemo(() => {
-        if (!allDrivers.length || !allPositions.size) return [];
+        if (standings?.length) {
+            // Build a team→color lookup from allDrivers
+            const teamColors = new Map<string, string>();
+            allDrivers.forEach((driver) => {
+                if (driver.team_name && driver.team_colour) {
+                    teamColors.set(
+                        driver.team_name,
+                        `#${driver.team_colour}`,
+                    );
+                }
+            });
+            return standings
+                .map((entry) => {
+                    // Prefer color sent directly by the enriched backend response;
+                    // fall back to allDrivers lookup for backwards compatibility.
+                    const color =
+                        (entry as any).team_colour
+                            ? `#${(entry as any).team_colour}`
+                            : (teamColors.get(entry.team_name) ?? "#ffffff");
+                    return {
+                        name: entry.team_name,
+                        points: entry.points_current ?? entry.points_start ?? 0,
+                        color,
+                    };
+                })
+                .sort((a, b) => b.points - a.points);
+        }
+
+        if (!allDrivers.length || !allPositions?.size) return [];
 
         const points = new Map<number, number>();
         allPositions.forEach((posList) => {
@@ -66,7 +100,7 @@ export default function ConstructorChampionshipTable({
         return Array.from(teamPoints.entries())
             .map(([name, v]) => ({ name, ...v }))
             .sort((a, b) => b.points - a.points);
-    }, [allDrivers, allPositions]);
+    }, [allDrivers, allPositions, standings]);
 
     if (!constructorChampionship.length) {
         return (
@@ -84,7 +118,7 @@ export default function ConstructorChampionshipTable({
                         <th className="sticky left-0 z-10 bg-f1-card text-left py-2 pr-3 pl-1 text-[10px] font-semibold text-f1-muted uppercase tracking-wider w-[40px]">
                             #
                         </th>
-                        <th className="sticky left-8 z-10 bg-f1-card text-left py-2 pr-4 text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[140px]">
+                        <th className="sticky left-8 z-10 bg-f1-card text-left py-2 pr-4 text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[160px]">
                             Team
                         </th>
                         <th className="py-2 px-3 text-right text-[10px] font-semibold text-white uppercase tracking-wider min-w-[56px]">

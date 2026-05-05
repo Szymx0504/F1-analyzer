@@ -132,6 +132,36 @@ async def get_position(session_key: int, driver_number: int | None = None, fresh
     return data
 
 
+async def get_session_result(
+    session_key: int,
+    max_position: int | None = None,
+) -> list[dict]:
+    params: dict[str, Any] = {"session_key": session_key}
+    if max_position is not None:
+        params["position<="] = max_position
+    return await _fetch("/session_result", params)
+
+
+async def get_driver_championship(
+    session_key: int,
+    driver_number: int | None = None,
+) -> list[dict]:
+    params: dict[str, Any] = {"session_key": session_key}
+    if driver_number:
+        params["driver_number"] = driver_number
+    return await _fetch("/championship_drivers", params)
+
+
+async def get_constructor_championship(
+    session_key: int,
+    team_name: str | None = None,
+) -> list[dict]:
+    params: dict[str, Any] = {"session_key": session_key}
+    if team_name:
+        params["team_name"] = team_name
+    return await _fetch("/championship_teams", params)
+
+
 # ─── Car Data (telemetry) ────────────────────────────────────────────
 
 async def get_car_data(
@@ -185,6 +215,15 @@ async def get_location(session_key: int, driver_number: int | None = None) -> li
     if driver_number:
         params["driver_number"] = driver_number
     return await _fetch("/location", params)
+
+
+# ─── Driver lookup (cross-session) ───────────────────────────────────
+
+async def get_driver_by_number(driver_number: int) -> dict | None:
+    """Return the most recent driver record for a given number across all sessions.
+    Used to resolve mid-season replacements who won't appear in the final session."""
+    data = await _fetch("/drivers", {"driver_number": driver_number})
+    return data[-1] if data else None
 
 
 # ─── Live helpers ────────────────────────────────────────────────────

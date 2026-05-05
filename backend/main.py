@@ -16,6 +16,9 @@ from openf1_client import (
     get_drivers,
     get_laps,
     get_position,
+    get_session_result,
+    get_driver_championship,
+    get_constructor_championship,
     get_car_data,
     get_pit_stops,
     get_stints,
@@ -23,6 +26,7 @@ from openf1_client import (
     get_weather,
     get_location,
     get_latest_session,
+    get_driver_by_number,
 )
 from ws_manager import replay_manager
 
@@ -86,6 +90,65 @@ async def latest_session():
 @app.get("/api/sessions/{session_key}/drivers")
 async def drivers(session_key: int):
     return await get_drivers(session_key)
+
+
+@app.get("/api/sessions/{session_key}/result")
+async def session_result(session_key: int, max_position: int | None = None):
+    return await get_session_result(session_key, max_position)
+
+
+@app.get("/api/championship/drivers")
+async def driver_championship(
+    session_key: int,
+    driver_number: int | None = None,
+):
+    standings, drivers_list = await asyncio.gather(
+        get_driver_championship(session_key, driver_number),
+        get_drivers(session_key),
+    )
+    drivers_map = {d["driver_number"]: d for d in drivers_list}
+
+    # Some drivers (e.g. mid-season replacements) won't appear in the final
+    # session's driver list — fetch them individually across all sessions.
+    missing = [
+        e["driver_number"] for e in standings
+        if e.get("driver_number") not in drivers_map
+    ]
+    if missing:
+        extras = await asyncio.gather(*(get_driver_by_number(dn) for dn in missing))
+        for d in extras:
+            if d:
+                drivers_map[d["driver_number"]] = d
+
+    for entry in standings:
+        driver = drivers_map.get(entry.get("driver_number"))
+        if driver:
+            entry["full_name"] = driver.get("full_name")
+            entry["name_acronym"] = driver.get("name_acronym")
+            entry["broadcast_name"] = driver.get("broadcast_name")
+            entry["team_name"] = driver.get("team_name")
+            entry["team_colour"] = driver.get("team_colour")
+    return standings
+
+
+@app.get("/api/championship/teams")
+async def constructor_championship(
+    session_key: int,
+    team_name: str | None = None,
+):
+    standings, drivers_list = await asyncio.gather(
+        get_constructor_championship(session_key, team_name),
+        get_drivers(session_key),
+    )
+    team_colours = {
+        d["team_name"]: d["team_colour"]
+        for d in drivers_list
+        if d.get("team_name") and d.get("team_colour")
+    }
+    for entry in standings:
+        if entry.get("team_name") in team_colours:
+            entry["team_colour"] = team_colours[entry["team_name"]]
+    return standings
 
 
 # ─── Laps ────────────────────────────────────────────────────────────

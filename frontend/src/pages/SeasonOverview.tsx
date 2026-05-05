@@ -1,7 +1,13 @@
 import { useState, useEffect } from "react";
 import { api } from "../lib/api";
 import { useApi } from "../hooks/useApi";
-import type { Driver, Position } from "../types";
+import type {
+    Driver,
+    Position,
+    SessionResultRow,
+    DriverChampionshipEntry,
+    ConstructorChampionshipEntry,
+} from "../types";
 import RaceResultTable from "../components/charts/RaceResultTable";
 import DriverChampionshipTable from "../components/charts/DriverChampionshipTable";
 import ConstructorChampionshipTable from "../components/charts/ConstructorChampionshipTable";
@@ -68,10 +74,10 @@ export default function SeasonOverview() {
         [selectedSessionKey],
     );
 
-    const { data: selectedPositions } = useApi<Position[]>(
+    const { data: selectedSessionResult } = useApi<SessionResultRow[]>(
         () =>
             selectedSessionKey
-                ? api.getPosition(selectedSessionKey)
+                ? api.getSessionResult(selectedSessionKey)
                 : Promise.resolve([]),
         [selectedSessionKey],
     );
@@ -80,6 +86,24 @@ export default function SeasonOverview() {
         new Map(),
     );
     const [allDrivers, setAllDrivers] = useState<Driver[]>([]);
+    const { data: driverChampionship, loading: driverChampionshipLoading } =
+        useApi<DriverChampionshipEntry[]>(
+            () =>
+                selectedSessionKey
+                    ? api.getDriverChampionship(selectedSessionKey)
+                    : Promise.resolve([]),
+            [selectedSessionKey],
+        );
+    const {
+        data: constructorChampionship,
+        loading: constructorChampionshipLoading,
+    } = useApi<ConstructorChampionshipEntry[]>(
+        () =>
+            selectedSessionKey
+                ? api.getConstructorChampionship(selectedSessionKey)
+                : Promise.resolve([]),
+        [selectedSessionKey],
+    );
 
     useEffect(() => {
         if (!raceSessions?.length || !selectedSessionKey) return;
@@ -185,14 +209,15 @@ export default function SeasonOverview() {
 
             {selectedSessionKey && (
                 <>
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                         <Card
                             title={`Race Result — ${selectedSession?.circuit_short_name ?? ""}${selectedSession?.country_name ? ` · ${selectedSession.country_name}` : ""}`}
                         >
-                            {selectedPositions &&
+                            {selectedSessionResult &&
+                            selectedSessionResult.length &&
                             uniqueSelectedDrivers.length ? (
                                 <RaceResultTable
-                                    positions={selectedPositions}
+                                    results={selectedSessionResult}
                                     drivers={uniqueSelectedDrivers}
                                 />
                             ) : (
@@ -205,35 +230,45 @@ export default function SeasonOverview() {
                         <Card
                             title={`Driver Championship — ${year} (after ${selectedSession?.circuit_short_name ?? "…"})`}
                         >
-                            {allDrivers.length && allPositions.size ? (
+                            {driverChampionshipLoading ? (
+                                <p className="text-f1-muted text-sm">
+                                    Loading championship points…
+                                </p>
+                            ) : driverChampionship?.length ? (
                                 <DriverChampionshipTable
+                                    standings={driverChampionship}
                                     allDrivers={allDrivers}
-                                    allPositions={allPositions}
                                 />
                             ) : (
                                 <p className="text-f1-muted text-sm">
-                                    Loading…
+                                    No championship data available.
+                                </p>
+                            )}
+                        </Card>
+
+                        <Card
+                            title={`Constructor Championship — ${year} (after ${selectedSession?.circuit_short_name ?? "…"})`}
+                        >
+                            {constructorChampionshipLoading ? (
+                                <p className="text-f1-muted text-sm">
+                                    Loading championship points…
+                                </p>
+                            ) : constructorChampionship?.length ? (
+                                <ConstructorChampionshipTable
+                                    standings={constructorChampionship}
+                                    allDrivers={allDrivers}
+                                />
+                            ) : (
+                                <p className="text-f1-muted text-sm">
+                                    No championship data available.
                                 </p>
                             )}
                         </Card>
                     </div>
 
                     <Card
-                        title={`Constructor Championship — ${year} (after ${selectedSession?.circuit_short_name ?? "…"})`}
-                    >
-                        {allDrivers.length && allPositions.size ? (
-                            <ConstructorChampionshipTable
-                                allDrivers={allDrivers}
-                                allPositions={allPositions}
-                            />
-                        ) : (
-                            <p className="text-f1-muted text-sm">Loading…</p>
-                        )}
-                    </Card>
-
-                    <Card
                         title={`Season Results Grid — ${year}`}
-                        className="overflow-hidden"
+                        className="overflow-x-auto"
                     >
                         {allDrivers.length && allPositions.size ? (
                             <SeasonGrid

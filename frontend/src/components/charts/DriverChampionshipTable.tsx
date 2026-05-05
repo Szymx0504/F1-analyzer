@@ -1,9 +1,10 @@
 import { useMemo } from "react";
-import type { Driver, Position } from "../../types";
+import type { Driver, Position, DriverChampionshipEntry } from "../../types";
 
 interface DriverChampionshipTableProps {
-    allDrivers: Driver[];
-    allPositions: Map<number, Position[]>;
+    allDrivers?: Driver[];
+    allPositions?: Map<number, Position[]>;
+    standings?: DriverChampionshipEntry[];
 }
 
 const POINTS_MAP: Record<number, number> = {
@@ -23,12 +24,69 @@ function positionPoints(pos: number): number {
     return POINTS_MAP[pos] ?? 0;
 }
 
+function getDriverLabel(
+    driver: Driver | undefined,
+    entry: DriverChampionshipEntry,
+) {
+    const byDriver =
+        driver?.full_name || driver?.broadcast_name || driver?.name_acronym;
+    // Backend now enriches entries with full_name / name_acronym / broadcast_name
+    const fromEntry =
+        (entry as any).full_name ||
+        (entry as any).broadcast_name ||
+        (entry as any).name_acronym ||
+        entry.full_name ||
+        entry.name;
+    return byDriver || fromEntry || null;
+}
+
+/**
+ * Returns the surname portion of a full name, or null when no real name is
+ * available so the caller can render just the number without duplication.
+ */
+function getSurname(label: string | null): string | null {
+    if (!label) return null;
+    const parts = label.trim().split(" ");
+    return parts[parts.length - 1] || null;
+}
+
 export default function DriverChampionshipTable({
-    allDrivers,
+    allDrivers = [],
     allPositions,
+    standings,
 }: DriverChampionshipTableProps) {
     const driverChampionship = useMemo(() => {
-        if (!allDrivers.length || !allPositions.size) return [];
+        if (standings?.length) {
+            const driversMap = new Map(
+                allDrivers.map((driver) => [driver.driver_number, driver]),
+            );
+            return standings
+                .map((entry) => {
+                    const driver = driversMap.get(Number(entry.driver_number));
+                    const label = getDriverLabel(driver, entry);
+                    const surname = getSurname(label);
+                    return {
+                        driverNumber: Number(entry.driver_number),
+                        surname, // null → render number only, no duplication
+                        // Backend enriches entries with team_name and team_colour;
+                        // fall back to allDrivers lookup for backwards compatibility.
+                        teamName:
+                            (entry as any).team_name ??
+                            driver?.team_name ??
+                            entry.team_name ??
+                            "",
+                        points: entry.points_current ?? entry.points_start ?? 0,
+                        color: `#${
+                            (entry as any).team_colour ??
+                            driver?.team_colour ??
+                            "ffffff"
+                        }`,
+                    };
+                })
+                .sort((a, b) => b.points - a.points);
+        }
+
+        if (!allDrivers.length || !allPositions?.size) return [];
         const points = new Map<number, number>();
         allPositions.forEach((posList) => {
             const byDriver = new Map<number, Position>();
@@ -50,14 +108,16 @@ export default function DriverChampionshipTable({
             .filter((d) => points.has(d.driver_number))
             .map((d) => ({
                 driverNumber: d.driver_number,
-                name: d.name_acronym,
-                fullName: d.full_name ?? d.name_acronym,
+                surname:
+                    d.full_name?.split(" ").slice(-1)[0] ??
+                    d.name_acronym ??
+                    null,
+                teamName: (d as any).team_name ?? "",
                 points: points.get(d.driver_number) ?? 0,
                 color: `#${d.team_colour || "ffffff"}`,
-                teamName: (d as any).team_name ?? "",
             }))
             .sort((a, b) => b.points - a.points);
-    }, [allDrivers, allPositions]);
+    }, [allDrivers, allPositions, standings]);
 
     if (!driverChampionship.length) {
         return (
@@ -78,6 +138,9 @@ export default function DriverChampionshipTable({
                         <th className="sticky left-8 z-10 bg-f1-card text-left py-2 pr-4 text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[140px]">
                             Driver
                         </th>
+                        <th className="py-2 px-3 text-left text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[160px]">
+                            Team
+                        </th>
                         <th className="py-2 px-3 text-right text-[10px] font-semibold text-white uppercase tracking-wider min-w-[56px]">
                             Pts
                         </th>
@@ -93,17 +156,16 @@ export default function DriverChampionshipTable({
                                 {i + 1}
                             </td>
                             <td className="sticky left-8 z-10 bg-f1-card py-2 pr-4">
-                                <div className="flex flex-col gap-0.5">
-                                    <span
-                                        className="font-bold"
-                                        style={{ color: driver.color }}
-                                    >
-                                        {driver.name}
-                                    </span>
-                                    <span className="text-[10px] text-f1-muted truncate max-w-[100px]">
-                                        {driver.teamName}
-                                    </span>
-                                </div>
+                                <span
+                                    className="font-bold"
+                                    style={{ color: driver.color }}
+                                >
+                                    #{driver.driverNumber}
+                                    {driver.surname ? ` ${driver.surname}` : ""}
+                                </span>
+                            </td>
+                            <td className="py-2 px-3 text-left text-f1-muted">
+                                {driver.teamName}
                             </td>
                             <td className="py-2 px-3 text-right font-bold text-white">
                                 {driver.points}

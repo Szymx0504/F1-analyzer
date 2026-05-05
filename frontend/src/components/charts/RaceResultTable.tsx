@@ -1,8 +1,8 @@
 import { useMemo } from "react";
-import type { Driver, Position } from "../../types";
+import type { Driver, SessionResultRow } from "../../types";
 
 interface RaceResultTableProps {
-    positions: Position[];
+    results: SessionResultRow[];
     drivers: Driver[];
 }
 
@@ -23,44 +23,49 @@ function positionPoints(pos: number): number {
     return POINTS_MAP[pos] ?? 0;
 }
 
+function getSurname(driver: Driver | undefined): string {
+    const name =
+        driver?.full_name ?? driver?.broadcast_name ?? driver?.name_acronym;
+    if (!name) return "Unknown";
+    const parts = name.trim().split(" ");
+    return parts[parts.length - 1] || name;
+}
+
 export default function RaceResultTable({
-    positions,
+    results,
     drivers,
 }: RaceResultTableProps) {
-    const finalPositions = useMemo(() => {
-        const byDriver = new Map<number, Position>();
-        positions.forEach((p) => {
-            const existing = byDriver.get(p.driver_number);
-            if (!existing || p.date > existing.date)
-                byDriver.set(p.driver_number, p);
-        });
-        return Array.from(byDriver.values())
-            .filter((p) => p.position >= 1 && p.position <= 20)
-            .sort((a, b) => a.position - b.position);
-    }, [positions]);
+    const finalResults = useMemo(
+        () =>
+            results
+                .filter((r) => r.position >= 1 && r.position <= 20)
+                .sort((a, b) => a.position - b.position),
+        [results],
+    );
 
     const data = useMemo(
         () =>
-            finalPositions.map((fp) => {
+            finalResults.map((row) => {
                 const driver = drivers.find(
-                    (d) => d.driver_number === fp.driver_number,
+                    (d) => d.driver_number === row.driver_number,
                 );
                 return {
-                    position: fp.position,
-                    driverNumber: fp.driver_number,
-                    acronym: driver?.name_acronym ?? `#${fp.driver_number}`,
-                    fullName: driver?.full_name ?? `Driver ${fp.driver_number}`,
-                    points: positionPoints(fp.position),
+                    position: row.position,
+                    driverNumber: row.driver_number,
+                    surname: getSurname(driver),
+                    teamName: driver?.team_name ?? "",
                     color: `#${driver?.team_colour || "ffffff"}`,
-                    teamName: (driver as any)?.team_name ?? "",
+                    points: positionPoints(row.position),
                 };
             }),
-        [finalPositions, drivers],
+        [finalResults, drivers],
     );
 
     if (!data.length)
         return (
-            <p className="text-f1-muted text-sm">No position data available.</p>
+            <p className="text-f1-muted text-sm">
+                No session result data available.
+            </p>
         );
 
     return (
@@ -73,6 +78,9 @@ export default function RaceResultTable({
                         </th>
                         <th className="sticky left-8 z-10 bg-f1-card text-left py-2 pr-4 text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[140px]">
                             Driver
+                        </th>
+                        <th className="py-2 px-3 text-left text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[160px]">
+                            Team
                         </th>
                         <th className="py-2 px-3 text-center text-[10px] font-semibold text-f1-muted uppercase tracking-wider min-w-[56px]">
                             Pos
@@ -92,17 +100,15 @@ export default function RaceResultTable({
                                 {i + 1}
                             </td>
                             <td className="sticky left-8 z-10 bg-f1-card py-2 pr-4">
-                                <div className="flex flex-col gap-0.5">
-                                    <span
-                                        className="font-bold"
-                                        style={{ color: row.color }}
-                                    >
-                                        {row.acronym}
-                                    </span>
-                                    <span className="text-[10px] text-f1-muted truncate max-w-[100px]">
-                                        {row.teamName}
-                                    </span>
-                                </div>
+                                <span
+                                    className="font-bold"
+                                    style={{ color: row.color }}
+                                >
+                                    #{row.driverNumber} {row.surname}
+                                </span>
+                            </td>
+                            <td className="py-2 px-3 text-left text-f1-muted">
+                                {row.teamName}
                             </td>
                             <td className="py-2 px-3 text-center font-bold text-white">
                                 P{row.position}
