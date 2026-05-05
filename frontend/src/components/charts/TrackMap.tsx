@@ -234,9 +234,8 @@ export default function TrackMap({
     const [error, setError] = useState<string | null>(null);
     const rafRef = useRef(0);
 
-    // Accumulation-based timing
-    const raceTimeRef = useRef(0);
-    const lastTickRef = useRef(0);
+    // Wall-clock anchored timing — immune to main-thread blocking
+    const anchorRef = useRef({ wall: 0, race: 0 });
     const rateRef = useRef(0); // race-ms per wall-ms
 
     // ── Fetch once per session ───────────────────────────────────────────────
@@ -498,15 +497,22 @@ export default function TrackMap({
         const range = lapRanges.get(currentLap);
         if (!range) return;
 
-        // Rate: 0 when paused → freezes in place
+        const now = performance.now();
+        const prev = anchorRef.current;
+
+        // Where is raceTime right now?
+        const curRace =
+            prev.wall > 0 ? prev.race + (now - prev.wall) * rateRef.current : 0;
+
+        // Update rate: 0 when paused → freezes in place
         rateRef.current = isPlaying ? (avgLapDur * speed) / 1000 : 0;
 
-        // Jump only on first load or slider scrub (gap > 2 laps)
-        const gap = Math.abs(raceTimeRef.current - range.start);
-        if (raceTimeRef.current === 0 || gap > avgLapDur * 2) {
-            raceTimeRef.current = range.start;
-            lastTickRef.current = 0;
-        }
+        // Jump on first load or slider scrub (gap > 2 laps), else re-anchor smoothly
+        const gap = Math.abs(curRace - range.start);
+        anchorRef.current = {
+            wall: now,
+            race: curRace === 0 || gap > avgLapDur * 2 ? range.start : curRace,
+        };
     }, [currentLap, speed, isPlaying, lapRanges, avgLapDur]);
 
     // ── Persistent rAF loop ──────────────────────────────────────────────────
@@ -529,16 +535,17 @@ export default function TrackMap({
         const arcS = arcSamples;
         let running = true;
 
+        // Re-anchor wall clock to now so elapsed starts at 0
+        // (prevents time skip if data loaded after sync effect)
+        anchorRef.current = { ...anchorRef.current, wall: performance.now() };
+
         function tick(now: number) {
             if (!running) return;
 
-            // Advance race time (rate=0 when paused → no advancement)
-            const dt = lastTickRef.current
-                ? Math.min(now - lastTickRef.current, 50)
-                : 16;
-            lastTickRef.current = now;
-            raceTimeRef.current += dt * rateRef.current;
-            const raceTime = raceTimeRef.current;
+            // Compute race time directly from wall clock — no accumulation drift
+            const { wall, race } = anchorRef.current;
+            const raceTime =
+                wall > 0 ? race + (now - wall) * rateRef.current : 0;
 
             ctx!.setTransform(dpr, 0, 0, dpr, 0, 0);
             ctx!.clearRect(0, 0, W, H);
@@ -562,8 +569,6 @@ export default function TrackMap({
 
                 const retire = retiredAt.get(drv.driver_number);
                 if (retire && raceTime > retire) continue;
-                if (raceTime > samples[samples.length - 1].time + 30_000)
-                    continue;
 
                 // Arc-length interpolation (follows track curves) with fallback
                 let pos: Pt | null = null;
