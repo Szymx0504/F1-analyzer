@@ -19,7 +19,13 @@ interface Props {
     maxLap: number;
 }
 
-const TooltipContent = ({ active, payload, label, focusedAcronyms, hasFocus }: any) => {
+const TooltipContent = ({
+    active,
+    payload,
+    label,
+    focusedAcronyms,
+    hasFocus,
+}: any) => {
     if (!active || !payload || !payload.length) return null;
     const items = payload
         .filter((p: any) => p.value != null)
@@ -29,26 +35,37 @@ const TooltipContent = ({ active, payload, label, focusedAcronyms, hasFocus }: a
     if (!items.length) return null;
     return (
         <div
-            className="rounded-lg border border-[#4b5563] p-3 text-white shadow-2xl"
-            style={{ backgroundColor: "#0a0e14", minWidth: 160 }}
+            className="rounded-lg border border-f1-border p-3 text-white shadow-2xl"
+            style={{ backgroundColor: "#111214", minWidth: 160 }}
         >
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-f1-muted">
                 Lap {label}
             </div>
             <div className="space-y-[3px]">
                 {items.map((item: any) => {
-                    const isLeader = typeof item.value === "number" && item.value < 0.001;
+                    const isLeader =
+                        typeof item.value === "number" && item.value < 0.001;
                     return (
-                        <div key={item.dataKey} className="flex items-center justify-between gap-4">
+                        <div
+                            key={item.dataKey}
+                            className="flex items-center justify-between gap-4"
+                        >
                             <div className="flex items-center gap-1.5">
                                 <span
                                     className="inline-block h-2 w-2 rounded-full flex-shrink-0"
                                     style={{ backgroundColor: item.stroke }}
                                 />
-                                <span className="text-[11px] font-bold tracking-wide">{item.dataKey}</span>
+                                <span className="text-[11px] font-bold tracking-wide">
+                                    {item.dataKey}
+                                </span>
                             </div>
-                            <span className="text-[11px] font-mono font-bold" style={{ color: item.stroke }}>
-                                {isLeader ? "Interval" : `+${Number(item.value).toFixed(3)}s`}
+                            <span
+                                className="text-[11px] font-mono font-bold"
+                                style={{ color: item.stroke }}
+                            >
+                                {isLeader
+                                    ? "Interval"
+                                    : `+${Number(item.value).toFixed(3)}s`}
                             </span>
                         </div>
                     );
@@ -92,7 +109,9 @@ export default function GapChart({
 }: Props) {
     void maxLap;
 
-    const [focusedDrivers, setFocusedDrivers] = useState<Set<number>>(new Set());
+    const [focusedDrivers, setFocusedDrivers] = useState<Set<number>>(
+        new Set(),
+    );
     const hasFocus = focusedDrivers.size > 0;
 
     const toggleDriver = useCallback((driverNumber: number) => {
@@ -109,7 +128,9 @@ export default function GapChart({
     const getStyle = (driver: Driver) => {
         const focused = focusedDrivers.has(driver.driver_number);
         if (!hasFocus) return { opacity: 1, strokeWidth: 1.5 };
-        return focused ? { opacity: 1, strokeWidth: 3 } : { opacity: 0.07, strokeWidth: 1 };
+        return focused
+            ? { opacity: 1, strokeWidth: 3 }
+            : { opacity: 0.07, strokeWidth: 1 };
     };
 
     // Pre-index intervals by driver with pre-parsed timestamps (computed once)
@@ -127,17 +148,22 @@ export default function GapChart({
     const fullChartData = useMemo(() => {
         if (!intervals.length || !laps.length) return [];
 
-        const lapNumbers = [...new Set(laps.map((l) => l.lap_number))].sort((a, b) => a - b);
+        const lapNumbers = [...new Set(laps.map((l) => l.lap_number))].sort(
+            (a, b) => a - b,
+        );
 
         return lapNumbers.map((lapNum) => {
             const row: Record<string, number | string> = { lap: lapNum };
             const lapEntries = laps.filter((l) => l.lap_number === lapNum);
 
             drivers.forEach((driver) => {
-                const lapEntry = lapEntries.find((l) => l.driver_number === driver.driver_number);
+                const lapEntry = lapEntries.find(
+                    (l) => l.driver_number === driver.driver_number,
+                );
                 if (!lapEntry?.date_start) return;
 
-                const driverIntervals = intervalsByDriver.get(driver.driver_number) ?? [];
+                const driverIntervals =
+                    intervalsByDriver.get(driver.driver_number) ?? [];
                 const lapTime = new Date(lapEntry.date_start).getTime();
                 let closest: Interval | null = null;
                 let bestDiff = Infinity;
@@ -149,8 +175,12 @@ export default function GapChart({
                     }
                 }
 
-                if (closest?.gap_to_leader != null && typeof closest.gap_to_leader === "number") {
-                    row[driver.name_acronym] = Math.round(closest.gap_to_leader * 1000) / 1000;
+                if (
+                    closest?.gap_to_leader != null &&
+                    typeof closest.gap_to_leader === "number"
+                ) {
+                    row[driver.name_acronym] =
+                        Math.round(closest.gap_to_leader * 1000) / 1000;
                 }
             });
 
@@ -160,7 +190,7 @@ export default function GapChart({
 
     // Cheap slice per tick
     const chartData = useMemo(
-        () => fullChartData.filter(row => (row.lap as number) <= currentLap),
+        () => fullChartData.filter((row) => (row.lap as number) <= currentLap),
         [fullChartData, currentLap],
     );
 
@@ -175,7 +205,10 @@ export default function GapChart({
         );
     }, [drivers, chartData]);
 
-    const teamGroups = useMemo(() => buildTeamGroups(sortedDrivers), [sortedDrivers]);
+    const teamGroups = useMemo(
+        () => buildTeamGroups(sortedDrivers),
+        [sortedDrivers],
+    );
 
     return (
         <div className="bg-f1-card rounded-xl border border-f1-border p-4">
@@ -186,7 +219,7 @@ export default function GapChart({
                 {hasFocus && (
                     <button
                         onClick={clearFocus}
-                        className="text-[10px] text-f1-muted hover:text-white transition-colors px-2 py-0.5 rounded border border-f1-border hover:border-gray-500"
+                        className="text-[10px] text-f1-muted hover:text-white transition-colors px-2 py-0.5 rounded border border-f1-border hover:border-f1-border/70"
                     >
                         Clear focus
                     </button>
@@ -194,47 +227,96 @@ export default function GapChart({
             </div>
 
             <div style={{ position: "relative", zIndex: 1 }}>
-            <ResponsiveContainer width="100%" height={300}>
-                <LineChart data={chartData} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
-                    <XAxis dataKey="lap" stroke="#6b7280" tick={{ fontSize: 11 }} />
-                    <YAxis stroke="#6b7280" tick={{ fontSize: 11 }} tickFormatter={(v) => `${v}s`} />
-                    <Tooltip
-                        content={(props: any) => <TooltipContent {...props} focusedAcronyms={hasFocus ? new Set(drivers.filter(d => focusedDrivers.has(d.driver_number)).map(d => d.name_acronym)) : null} hasFocus={hasFocus} />}
-                        wrapperStyle={{ zIndex: 50, opacity: 1 }}
-                        cursor={{ stroke: "#6b7280", strokeDasharray: "5 5" }}
-                    />
-                    {drivers.map((driver) => {
-                        const color = `#${driver.team_colour || "ffffff"}`;
-                        const style = getStyle(driver);
-                        return (
-                            <Line
-                                key={driver.driver_number}
-                                type="monotone"
-                                dataKey={driver.name_acronym}
-                                stroke={color}
-                                strokeWidth={style.strokeWidth}
-                                strokeOpacity={style.opacity}
-                                dot={false}
-                                activeDot={!hasFocus || focusedDrivers.has(driver.driver_number) ? { r: 4, fill: color, stroke: "#fff", strokeWidth: 1.5 } : false}
-                                connectNulls
-                                isAnimationActive={false}
-                            />
-                        );
-                    })}
-                </LineChart>
-            </ResponsiveContainer>
+                <ResponsiveContainer width="100%" height={300}>
+                    <LineChart
+                        data={chartData}
+                        margin={{ top: 5, right: 20, bottom: 5, left: 0 }}
+                    >
+                        <CartesianGrid strokeDasharray="3 3" stroke="#2d3748" />
+                        <XAxis
+                            dataKey="lap"
+                            stroke="#6b7280"
+                            tick={{ fontSize: 11 }}
+                        />
+                        <YAxis
+                            stroke="#6b7280"
+                            tick={{ fontSize: 11 }}
+                            tickFormatter={(v) => `${v}s`}
+                        />
+                        <Tooltip
+                            content={(props: any) => (
+                                <TooltipContent
+                                    {...props}
+                                    focusedAcronyms={
+                                        hasFocus
+                                            ? new Set(
+                                                  drivers
+                                                      .filter((d) =>
+                                                          focusedDrivers.has(
+                                                              d.driver_number,
+                                                          ),
+                                                      )
+                                                      .map(
+                                                          (d) => d.name_acronym,
+                                                      ),
+                                              )
+                                            : null
+                                    }
+                                    hasFocus={hasFocus}
+                                />
+                            )}
+                            wrapperStyle={{ zIndex: 50, opacity: 1 }}
+                            cursor={{
+                                stroke: "#6b7280",
+                                strokeDasharray: "5 5",
+                            }}
+                        />
+                        {drivers.map((driver) => {
+                            const color = `#${driver.team_colour || "ffffff"}`;
+                            const style = getStyle(driver);
+                            return (
+                                <Line
+                                    key={driver.driver_number}
+                                    type="monotone"
+                                    dataKey={driver.name_acronym}
+                                    stroke={color}
+                                    strokeWidth={style.strokeWidth}
+                                    strokeOpacity={style.opacity}
+                                    dot={false}
+                                    activeDot={
+                                        !hasFocus ||
+                                        focusedDrivers.has(driver.driver_number)
+                                            ? {
+                                                  r: 4,
+                                                  fill: color,
+                                                  stroke: "#fff",
+                                                  strokeWidth: 1.5,
+                                              }
+                                            : false
+                                    }
+                                    connectNulls
+                                    isAnimationActive={false}
+                                />
+                            );
+                        })}
+                    </LineChart>
+                </ResponsiveContainer>
             </div>
 
             {/* Team-grouped driver legend — one column per team */}
             <div
                 className="mt-3 grid gap-x-4 gap-y-3"
-                style={{ gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))` }}
+                style={{
+                    gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))`,
+                }}
             >
                 {teamGroups.map((group) => {
                     const teamColor = `#${group.teamColour}`;
                     return (
-                        <div key={group.teamColour} className="flex flex-col gap-1">
+                        <div
+                            key={group.teamColour}
+                            className="flex flex-col gap-1"
+                        >
                             {/* Team name */}
                             <span
                                 className="text-[10px] font-semibold uppercase tracking-wide"
@@ -245,17 +327,23 @@ export default function GapChart({
                             {/* Driver buttons stacked vertically */}
                             {group.drivers.map((driver) => {
                                 const color = `#${driver.team_colour || "ffffff"}`;
-                                const focused = focusedDrivers.has(driver.driver_number);
+                                const focused = focusedDrivers.has(
+                                    driver.driver_number,
+                                );
                                 const dimmed = hasFocus && !focused;
                                 return (
                                     <button
                                         key={driver.driver_number}
-                                        onClick={() => toggleDriver(driver.driver_number)}
+                                        onClick={() =>
+                                            toggleDriver(driver.driver_number)
+                                        }
                                         className="flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold transition-all"
                                         style={{
                                             fontSize: 11,
                                             border: `1.5px solid ${focused ? color : "#2d3748"}`,
-                                            backgroundColor: focused ? `${color}20` : "transparent",
+                                            backgroundColor: focused
+                                                ? `${color}20`
+                                                : "transparent",
                                             color: dimmed ? "#374151" : color,
                                             opacity: dimmed ? 0.5 : 1,
                                             transition: "all 0.15s ease",
@@ -264,9 +352,16 @@ export default function GapChart({
                                     >
                                         <span
                                             className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
-                                            style={{ backgroundColor: dimmed ? "#374151" : color }}
+                                            style={{
+                                                backgroundColor: dimmed
+                                                    ? "#374151"
+                                                    : color,
+                                            }}
                                         />
-                                        {driver.full_name?.split(" ").slice(-1)[0] ?? driver.name_acronym}
+                                        {driver.full_name
+                                            ?.split(" ")
+                                            .slice(-1)[0] ??
+                                            driver.name_acronym}
                                     </button>
                                 );
                             })}

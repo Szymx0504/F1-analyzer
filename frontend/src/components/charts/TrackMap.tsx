@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState, useMemo } from "react";
 import { api } from "../../lib/api";
-import type { Driver, Interval, Lap, Position, Stint, TrackMapData } from "../../types";
+import type {
+    Driver,
+    Interval,
+    Lap,
+    Position,
+    Stint,
+    TrackMapData,
+} from "../../types";
 
 interface Props {
     sessionKey: number;
@@ -17,9 +24,20 @@ interface Props {
 
 // ── Types & constants ────────────────────────────────────────────────────────
 
-interface Sample { x: number; y: number; time: number }
-interface ArcSample { d: number; time: number }
-interface TrackSeg { x: number; y: number; d: number }
+interface Sample {
+    x: number;
+    y: number;
+    time: number;
+}
+interface ArcSample {
+    d: number;
+    time: number;
+}
+interface TrackSeg {
+    x: number;
+    y: number;
+    d: number;
+}
 type Bounds = { minX: number; maxX: number; minY: number; maxY: number };
 type Pt = { x: number; y: number };
 
@@ -31,7 +49,10 @@ const SNAP_PTS = 200; // outline points used for snap (perf)
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function computeBounds(pts: Pt[]): Bounds {
-    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    let minX = Infinity,
+        maxX = -Infinity,
+        minY = Infinity,
+        maxY = -Infinity;
     for (const p of pts) {
         if (p.x < minX) minX = p.x;
         if (p.x > maxX) maxX = p.x;
@@ -57,12 +78,15 @@ function interpolate(samples: Sample[], time: number): Pt | null {
     if (!n) return null;
     if (time <= samples[0].time) return samples[0];
     if (time >= samples[n - 1].time) return samples[n - 1];
-    let lo = 0, hi = n - 1;
+    let lo = 0,
+        hi = n - 1;
     while (hi - lo > 1) {
         const mid = (lo + hi) >> 1;
-        if (samples[mid].time <= time) lo = mid; else hi = mid;
+        if (samples[mid].time <= time) lo = mid;
+        else hi = mid;
     }
-    const a = samples[lo], b = samples[hi];
+    const a = samples[lo],
+        b = samples[hi];
     const t = (time - a.time) / (b.time - a.time || 1);
     return { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
 }
@@ -80,32 +104,50 @@ function downsample(arr: Pt[], target: number): Pt[] {
 function buildTrackPath(pts: Pt[]): { segs: TrackSeg[]; totalLen: number } {
     const segs: TrackSeg[] = [{ x: pts[0].x, y: pts[0].y, d: 0 }];
     for (let i = 1; i < pts.length; i++) {
-        const dx = pts[i].x - pts[i - 1].x, dy = pts[i].y - pts[i - 1].y;
-        segs.push({ x: pts[i].x, y: pts[i].y, d: segs[i - 1].d + Math.sqrt(dx * dx + dy * dy) });
+        const dx = pts[i].x - pts[i - 1].x,
+            dy = pts[i].y - pts[i - 1].y;
+        segs.push({
+            x: pts[i].x,
+            y: pts[i].y,
+            d: segs[i - 1].d + Math.sqrt(dx * dx + dy * dy),
+        });
     }
-    const lx = pts[pts.length - 1], fx = pts[0];
-    const cdx = fx.x - lx.x, cdy = fx.y - lx.y;
+    const lx = pts[pts.length - 1],
+        fx = pts[0];
+    const cdx = fx.x - lx.x,
+        cdy = fx.y - lx.y;
     const totalLen = segs[segs.length - 1].d + Math.sqrt(cdx * cdx + cdy * cdy);
     return { segs, totalLen };
 }
 
 /** Project a point onto the track and return its arc-length parameter */
 function projectToArc(pt: Pt, segs: TrackSeg[], totalLen: number): number {
-    let bestD2 = Infinity, bestArc = 0;
+    let bestD2 = Infinity,
+        bestArc = 0;
     const n = segs.length;
     for (let i = 0; i < n; i++) {
         const a = segs[i];
-        const b = i < n - 1
-            ? segs[i + 1]
-            : { x: segs[0].x, y: segs[0].y, d: totalLen };
-        const abx = b.x - a.x, aby = b.y - a.y;
+        const b =
+            i < n - 1
+                ? segs[i + 1]
+                : { x: segs[0].x, y: segs[0].y, d: totalLen };
+        const abx = b.x - a.x,
+            aby = b.y - a.y;
         const len2 = abx * abx + aby * aby;
         if (len2 < 1) continue;
-        const t = Math.max(0, Math.min(1, ((pt.x - a.x) * abx + (pt.y - a.y) * aby) / len2));
-        const px = a.x + t * abx, py = a.y + t * aby;
-        const dx = pt.x - px, dy = pt.y - py;
+        const t = Math.max(
+            0,
+            Math.min(1, ((pt.x - a.x) * abx + (pt.y - a.y) * aby) / len2),
+        );
+        const px = a.x + t * abx,
+            py = a.y + t * aby;
+        const dx = pt.x - px,
+            dy = pt.y - py;
         const d2 = dx * dx + dy * dy;
-        if (d2 < bestD2) { bestD2 = d2; bestArc = a.d + t * (b.d - a.d); }
+        if (d2 < bestD2) {
+            bestD2 = d2;
+            bestArc = a.d + t * (b.d - a.d);
+        }
     }
     return bestArc;
 }
@@ -113,25 +155,33 @@ function projectToArc(pt: Pt, segs: TrackSeg[], totalLen: number): number {
 /** Map an arc-length back to (x,y) on the track */
 function arcToPos(d: number, segs: TrackSeg[], totalLen: number): Pt {
     d = ((d % totalLen) + totalLen) % totalLen;
-    let lo = 0, hi = segs.length - 1;
+    let lo = 0,
+        hi = segs.length - 1;
     while (hi - lo > 1) {
         const mid = (lo + hi) >> 1;
-        if (segs[mid].d <= d) lo = mid; else hi = mid;
+        if (segs[mid].d <= d) lo = mid;
+        else hi = mid;
     }
     const a = segs[lo];
-    const b = lo < segs.length - 1
-        ? segs[lo + 1]
-        : { x: segs[0].x, y: segs[0].y, d: totalLen };
+    const b =
+        lo < segs.length - 1
+            ? segs[lo + 1]
+            : { x: segs[0].x, y: segs[0].y, d: totalLen };
     const segLen = b.d - a.d;
     const t = segLen > 0 ? (d - a.d) / segLen : 0;
     return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
 }
 
 /** Convert driver samples to unwrapped arc-length samples */
-function toArcSamples(samples: Sample[], segs: TrackSeg[], totalLen: number): ArcSample[] {
+function toArcSamples(
+    samples: Sample[],
+    segs: TrackSeg[],
+    totalLen: number,
+): ArcSample[] {
     if (!samples.length || !segs.length) return [];
     const result: ArcSample[] = [];
-    let offset = 0, prevRaw = -1;
+    let offset = 0,
+        prevRaw = -1;
     for (const s of samples) {
         const raw = projectToArc(s, segs, totalLen);
         if (prevRaw >= 0) {
@@ -151,12 +201,15 @@ function interpolateArc(samples: ArcSample[], time: number): number | null {
     if (!n) return null;
     if (time <= samples[0].time) return samples[0].d;
     if (time >= samples[n - 1].time) return samples[n - 1].d;
-    let lo = 0, hi = n - 1;
+    let lo = 0,
+        hi = n - 1;
     while (hi - lo > 1) {
         const mid = (lo + hi) >> 1;
-        if (samples[mid].time <= time) lo = mid; else hi = mid;
+        if (samples[mid].time <= time) lo = mid;
+        else hi = mid;
     }
-    const a = samples[lo], b = samples[hi];
+    const a = samples[lo],
+        b = samples[hi];
     const t = (time - a.time) / (b.time - a.time || 1);
     return a.d + (b.d - a.d) * t;
 }
@@ -191,12 +244,22 @@ export default function TrackMap({
     useEffect(() => {
         if (!sessionKey) return;
         let cancelled = false;
-        setLoading(true); setError(null); setTrackData(null);
+        setLoading(true);
+        setError(null);
+        setTrackData(null);
         api.getTrackMap(sessionKey)
-            .then((d) => { if (!cancelled) setTrackData(d); })
-            .catch((e) => { if (!cancelled) setError(e.message ?? "Failed to load"); })
-            .finally(() => { if (!cancelled) setLoading(false); });
-        return () => { cancelled = true; };
+            .then((d) => {
+                if (!cancelled) setTrackData(d);
+            })
+            .catch((e) => {
+                if (!cancelled) setError(e.message ?? "Failed to load");
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => {
+            cancelled = true;
+        };
     }, [sessionKey]);
 
     // ── Memos ─────────────────────────────────────────────────────────────────
@@ -205,7 +268,14 @@ export default function TrackMap({
         if (!trackData) return new Map<number, Sample[]>();
         const m = new Map<number, Sample[]>();
         for (const [dn, pts] of Object.entries(trackData.drivers))
-            m.set(Number(dn), pts.map((p) => ({ x: p.x, y: p.y, time: new Date(p.date).getTime() })));
+            m.set(
+                Number(dn),
+                pts.map((p) => ({
+                    x: p.x,
+                    y: p.y,
+                    time: new Date(p.date).getTime(),
+                })),
+            );
         return m;
     }, [trackData]);
 
@@ -215,7 +285,11 @@ export default function TrackMap({
         // Include a few driver samples so bounds work even without outline
         for (const samples of parsed.values()) {
             if (samples.length) {
-                allPts.push(samples[0], samples[Math.floor(samples.length / 2)], samples[samples.length - 1]);
+                allPts.push(
+                    samples[0],
+                    samples[Math.floor(samples.length / 2)],
+                    samples[samples.length - 1],
+                );
             }
         }
         if (!allPts.length) return null;
@@ -228,7 +302,10 @@ export default function TrackMap({
         let first = true;
         for (const pt of trackData.outline) {
             const { px, py } = toCanvas(pt.x, pt.y, bounds);
-            if (first) { path.moveTo(px, py); first = false; } else path.lineTo(px, py);
+            if (first) {
+                path.moveTo(px, py);
+                first = false;
+            } else path.lineTo(px, py);
         }
         path.closePath();
         return path;
@@ -251,7 +328,10 @@ export default function TrackMap({
         if (!trackPath) return new Map<number, ArcSample[]>();
         const m = new Map<number, ArcSample[]>();
         for (const [dn, samples] of parsed)
-            m.set(dn, toArcSamples(samples, trackPath.segs, trackPath.totalLen));
+            m.set(
+                dn,
+                toArcSamples(samples, trackPath.segs, trackPath.totalLen),
+            );
         return m;
     }, [parsed, trackPath]);
 
@@ -265,7 +345,10 @@ export default function TrackMap({
         const ranges = new Map<number, { start: number; end: number }>();
         for (let i = 0; i < nums.length; i++) {
             const s = Math.min(...starts.get(nums[i])!);
-            const e = i < nums.length - 1 ? Math.min(...starts.get(nums[i + 1])!) : s + 100_000;
+            const e =
+                i < nums.length - 1
+                    ? Math.min(...starts.get(nums[i + 1])!)
+                    : s + 100_000;
             ranges.set(nums[i], { start: s, end: e });
         }
         return ranges;
@@ -290,8 +373,11 @@ export default function TrackMap({
                 if (dx * dx + dy * dy > 2500) lastMovingIdx = i;
             }
             if (samples.length - lastMovingIdx > 10) {
-                const staticMs = samples[samples.length - 1].time - samples[lastMovingIdx].time;
-                if (staticMs > 180_000) map.set(dn, samples[lastMovingIdx].time + 5_000);
+                const staticMs =
+                    samples[samples.length - 1].time -
+                    samples[lastMovingIdx].time;
+                if (staticMs > 180_000)
+                    map.set(dn, samples[lastMovingIdx].time + 5_000);
             }
         }
         return map;
@@ -313,7 +399,7 @@ export default function TrackMap({
     const standings = useMemo((): Standing[] => {
         // Positions: latest per driver at/before current lap time
         const driverPos = new Map<number, number>();
-        const currentLapData = laps.filter(l => l.lap_number === currentLap);
+        const currentLapData = laps.filter((l) => l.lap_number === currentLap);
         if (currentLapData.length) {
             const lapTime = new Date(currentLapData[0].date_start).getTime();
             const latestPerDriver = new Map<number, Position>();
@@ -325,9 +411,11 @@ export default function TrackMap({
                         latestPerDriver.set(p.driver_number, p);
                 }
             }
-            for (const [dn, p] of latestPerDriver) driverPos.set(dn, p.position);
+            for (const [dn, p] of latestPerDriver)
+                driverPos.set(dn, p.position);
         } else {
-            for (const p of positions) driverPos.set(p.driver_number, p.position);
+            for (const p of positions)
+                driverPos.set(p.driver_number, p.position);
         }
 
         // Intervals: latest gap_to_leader and interval per driver at current lap
@@ -359,14 +447,18 @@ export default function TrackMap({
         const driverPits = new Map<number, number>();
         for (const st of stints) {
             if (st.stint_number > 1 && st.lap_start <= currentLap) {
-                driverPits.set(st.driver_number, (driverPits.get(st.driver_number) ?? 0) + 1);
+                driverPits.set(
+                    st.driver_number,
+                    (driverPits.get(st.driver_number) ?? 0) + 1,
+                );
             }
         }
 
         // Pit-out detection
         const pitOut = new Set<number>();
         for (const l of laps) {
-            if (l.lap_number === currentLap && l.is_pit_out_lap) pitOut.add(l.driver_number);
+            if (l.lap_number === currentLap && l.is_pit_out_lap)
+                pitOut.add(l.driver_number);
         }
 
         // Build
@@ -407,7 +499,7 @@ export default function TrackMap({
         if (!range) return;
 
         // Rate: 0 when paused → freezes in place
-        rateRef.current = isPlaying ? avgLapDur * speed / 1000 : 0;
+        rateRef.current = isPlaying ? (avgLapDur * speed) / 1000 : 0;
 
         // Jump only on first load or slider scrub (gap > 2 laps)
         const gap = Math.abs(raceTimeRef.current - range.start);
@@ -441,7 +533,9 @@ export default function TrackMap({
             if (!running) return;
 
             // Advance race time (rate=0 when paused → no advancement)
-            const dt = lastTickRef.current ? Math.min(now - lastTickRef.current, 50) : 16;
+            const dt = lastTickRef.current
+                ? Math.min(now - lastTickRef.current, 50)
+                : 16;
             lastTickRef.current = now;
             raceTimeRef.current += dt * rateRef.current;
             const raceTime = raceTimeRef.current;
@@ -468,7 +562,8 @@ export default function TrackMap({
 
                 const retire = retiredAt.get(drv.driver_number);
                 if (retire && raceTime > retire) continue;
-                if (raceTime > samples[samples.length - 1].time + 30_000) continue;
+                if (raceTime > samples[samples.length - 1].time + 30_000)
+                    continue;
 
                 // Arc-length interpolation (follows track curves) with fallback
                 let pos: Pt | null = null;
@@ -494,7 +589,11 @@ export default function TrackMap({
                 ctx!.fillStyle = col;
                 ctx!.fill();
 
-                if (hl) { ctx!.strokeStyle = "#fff"; ctx!.lineWidth = 2; ctx!.stroke(); }
+                if (hl) {
+                    ctx!.strokeStyle = "#fff";
+                    ctx!.lineWidth = 2;
+                    ctx!.stroke();
+                }
                 if (!dim) {
                     ctx!.font = "bold 9px monospace";
                     ctx!.fillStyle = col;
@@ -508,8 +607,20 @@ export default function TrackMap({
         }
 
         rafRef.current = requestAnimationFrame(tick);
-        return () => { running = false; cancelAnimationFrame(rafRef.current); };
-    }, [bounds, outlinePath, drivers, parsed, highlightDriver, retiredAt, trackPath, arcSamples]);
+        return () => {
+            running = false;
+            cancelAnimationFrame(rafRef.current);
+        };
+    }, [
+        bounds,
+        outlinePath,
+        drivers,
+        parsed,
+        highlightDriver,
+        retiredAt,
+        trackPath,
+        arcSamples,
+    ]);
 
     // ── Render ───────────────────────────────────────────────────────────────
 
@@ -519,45 +630,62 @@ export default function TrackMap({
                 Track Map
             </h3>
             {loading ? (
-                <div className="flex items-center justify-center text-f1-muted" style={{ height: H }}>
+                <div
+                    className="flex items-center justify-center text-f1-muted"
+                    style={{ height: H }}
+                >
                     <div className="text-center">
                         <div className="inline-block w-6 h-6 border-2 border-f1-border border-t-f1-red rounded-full animate-spin mb-2" />
                         <p className="text-sm">Loading track data...</p>
                     </div>
                 </div>
             ) : error ? (
-                <div className="flex items-center justify-center text-f1-muted" style={{ height: H }}>
-                    <p className="text-sm text-red-400">{error}</p>
+                <div
+                    className="flex items-center justify-center text-f1-muted"
+                    style={{ height: H }}
+                >
+                    <p className="text-sm text-f1-red">{error}</p>
                 </div>
             ) : !trackData ? (
-                <div className="flex items-center justify-center text-f1-muted" style={{ height: H }}>
+                <div
+                    className="flex items-center justify-center text-f1-muted"
+                    style={{ height: H }}
+                >
                     <p className="text-sm">No track data available</p>
                 </div>
             ) : (
                 <div className="flex gap-3">
                     {/* Position Tower */}
                     <div
-                        className="shrink-0 rounded-lg overflow-hidden text-xs bg-black/40"
+                        className="shrink-0 rounded-lg overflow-hidden text-xs bg-f1-card/60"
                         style={{ width: 200, height: H, overflowY: "auto" }}
                     >
                         <div className="bg-black/70 px-2 py-1.5 font-bold text-[10px] text-white/70 uppercase tracking-wider border-b border-white/10 flex items-center justify-between">
                             <span>Lap {currentLap}</span>
-                            <span className="text-white/40 normal-case">Gap / Int</span>
+                            <span className="text-white/40 normal-case">
+                                Gap / Int
+                            </span>
                         </div>
                         {standings.map((s) => {
                             const col = `#${s.driver.team_colour || "fff"}`;
-                            const isHl = highlightDriver === s.driver.driver_number;
+                            const isHl =
+                                highlightDriver === s.driver.driver_number;
                             const isDim = highlightDriver != null && !isHl;
                             const tyreColor: Record<string, string> = {
-                                SOFT: "#ef4444", MEDIUM: "#eab308", HARD: "#f5f5f5",
-                                INTERMEDIATE: "#22c55e", WET: "#3b82f6",
+                                SOFT: "#ef4444",
+                                MEDIUM: "#eab308",
+                                HARD: "#f5f5f5",
+                                INTERMEDIATE: "#22c55e",
+                                WET: "#3b82f6",
                             };
                             return (
                                 <div
                                     key={s.driver.driver_number}
                                     className="flex items-center gap-1 px-1.5 py-[3px] border-b border-white/5"
                                     style={{
-                                        background: isHl ? "rgba(255,255,255,0.1)" : "transparent",
+                                        background: isHl
+                                            ? "rgba(255,255,255,0.1)"
+                                            : "transparent",
                                         opacity: isDim ? 0.3 : 1,
                                     }}
                                 >
@@ -579,8 +707,14 @@ export default function TrackMap({
                                         <span
                                             className="text-[8px] font-bold px-1 rounded shrink-0"
                                             style={{
-                                                background: s.status === "PIT" ? "#eab308" : "#ef4444",
-                                                color: s.status === "PIT" ? "#000" : "#fff",
+                                                background:
+                                                    s.status === "PIT"
+                                                        ? "#eab308"
+                                                        : "#ef4444",
+                                                color:
+                                                    s.status === "PIT"
+                                                        ? "#000"
+                                                        : "#fff",
                                             }}
                                         >
                                             {s.status}
@@ -590,7 +724,11 @@ export default function TrackMap({
                                     {s.tyre && (
                                         <span
                                             className="text-[9px] font-bold shrink-0 w-3 text-center"
-                                            style={{ color: tyreColor[s.tyre] ?? "#9ca3af" }}
+                                            style={{
+                                                color:
+                                                    tyreColor[s.tyre] ??
+                                                    "#9ca3af",
+                                            }}
                                             title={`${s.tyre} (${s.tyreAge} laps)`}
                                         >
                                             {s.tyre[0]}
@@ -603,13 +741,24 @@ export default function TrackMap({
                                         </span>
                                     )}
                                     {/* Gap / Interval */}
-                                    <span className="ml-auto text-right text-[9px] font-mono shrink-0"
-                                        style={{ color: s.gap === "LEADER" ? "#f5f5f5" : "#9ca3af", minWidth: 42 }}
+                                    <span
+                                        className="ml-auto text-right text-[9px] font-mono shrink-0"
+                                        style={{
+                                            color:
+                                                s.gap === "LEADER"
+                                                    ? "#f5f5f5"
+                                                    : "#9ca3af",
+                                            minWidth: 42,
+                                        }}
                                     >
                                         {s.gap === "LEADER" ? (
-                                            <span className="text-[8px] font-bold text-emerald-400">LEADER</span>
+                                            <span className="text-[8px] font-bold text-emerald-400">
+                                                LEADER
+                                            </span>
                                         ) : (
-                                            <span title={`Int: ${s.interval}`}>{s.gap}</span>
+                                            <span title={`Int: ${s.interval}`}>
+                                                {s.gap}
+                                            </span>
                                         )}
                                     </span>
                                 </div>

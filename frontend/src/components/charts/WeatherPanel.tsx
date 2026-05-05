@@ -43,10 +43,7 @@ export default function WeatherPanel({
                     {/* Current stats */}
                     <div className="grid grid-cols-2 gap-3 mb-4">
                         <div className="flex items-center gap-2">
-                            <Thermometer
-                                size={16}
-                                className="text-orange-400"
-                            />
+                            <Thermometer size={16} className="text-f1-accent" />
                             <div>
                                 <p className="text-xs text-f1-muted">
                                     Air Temp
@@ -57,7 +54,7 @@ export default function WeatherPanel({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Thermometer size={16} className="text-red-400" />
+                            <Thermometer size={16} className="text-f1-red" />
                             <div>
                                 <p className="text-xs text-f1-muted">
                                     Track Temp
@@ -68,7 +65,7 @@ export default function WeatherPanel({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Droplets size={16} className="text-blue-400" />
+                            <Droplets size={16} className="text-f1-muted" />
                             <div>
                                 <p className="text-xs text-f1-muted">
                                     Humidity
@@ -79,7 +76,7 @@ export default function WeatherPanel({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <Wind size={16} className="text-gray-400" />
+                            <Wind size={16} className="text-f1-muted" />
                             <div>
                                 <p className="text-xs text-f1-muted">Wind</p>
                                 <p className="text-sm font-semibold">
@@ -88,7 +85,7 @@ export default function WeatherPanel({
                             </div>
                         </div>
                         <div className="flex items-center gap-2">
-                            <CloudRain size={16} className="text-blue-300" />
+                            <CloudRain size={16} className="text-f1-muted" />
                             <div>
                                 <p className="text-xs text-f1-muted">
                                     Rainfall
@@ -112,8 +109,8 @@ export default function WeatherPanel({
                                 />
                                 <Tooltip
                                     contentStyle={{
-                                        backgroundColor: "#1f2937",
-                                        border: "1px solid #374151",
+                                        backgroundColor: "#111214",
+                                        border: "1px solid #2d2f33",
                                         borderRadius: "8px",
                                         fontSize: 12,
                                     }}

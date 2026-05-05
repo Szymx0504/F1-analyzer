@@ -40,7 +40,8 @@ export default function DriverChampionshipTable({
                 if (pos.position >= 1 && pos.position <= 20) {
                     points.set(
                         driverNum,
-                        (points.get(driverNum) ?? 0) + positionPoints(pos.position),
+                        (points.get(driverNum) ?? 0) +
+                            positionPoints(pos.position),
                     );
                 }
             });
@@ -86,7 +87,7 @@ export default function DriverChampionshipTable({
                     {driverChampionship.map((driver, i) => (
                         <tr
                             key={driver.driverNumber}
-                            className="border-t border-[#1f2937] hover:bg-white/[0.03] transition-colors"
+                            className="border-t border-f1-border hover:bg-f1-border/20 transition-colors"
                         >
                             <td className="sticky left-0 z-10 bg-f1-card py-2 pr-3 pl-1 text-f1-muted">
                                 {i + 1}

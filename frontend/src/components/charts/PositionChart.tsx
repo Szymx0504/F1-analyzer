@@ -21,7 +21,13 @@ interface Props {
 
 // ── Tooltip ───────────────────────────────────────────────────────────────────
 
-const TooltipContent = ({ active, payload, label, focusedAcronyms, hasFocus }: any) => {
+const TooltipContent = ({
+    active,
+    payload,
+    label,
+    focusedAcronyms,
+    hasFocus,
+}: any) => {
     if (!active || !payload || !payload.length) return null;
     const items = payload
         .filter((p: any) => p.value != null)
@@ -31,10 +37,10 @@ const TooltipContent = ({ active, payload, label, focusedAcronyms, hasFocus }: a
     if (!items.length) return null;
     return (
         <div
-            className="rounded-lg border border-[#4b5563] p-3 text-white shadow-2xl"
-            style={{ backgroundColor: "#0a0e14", minWidth: 160 }}
+            className="rounded-lg border border-f1-border p-3 text-white shadow-2xl"
+            style={{ backgroundColor: "#111214", minWidth: 160 }}
         >
-            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+            <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-f1-muted">
                 Lap {label}
             </div>
             <div className="space-y-[3px]">
@@ -123,7 +129,9 @@ export default function PositionChart({
     void maxLap;
 
     // Multi-select focus state
-    const [focusedDrivers, setFocusedDrivers] = useState<Set<number>>(new Set());
+    const [focusedDrivers, setFocusedDrivers] = useState<Set<number>>(
+        new Set(),
+    );
     const hasFocus = focusedDrivers.size > 0;
 
     const toggleDriver = useCallback((driverNumber: number) => {
@@ -156,44 +164,49 @@ export default function PositionChart({
         );
         return lapNumbers.map((lapNum) => {
             const row: Record<string, number | null> = { lap: lapNum };
-            laps
-                .filter((l) => l.lap_number === lapNum)
-                .forEach((lap) => {
-                    const driver = drivers.find(
-                        (d) => d.driver_number === lap.driver_number,
-                    );
-                    if (!driver) return;
-                    const driverPositions =
-                        positionsByDriver.get(lap.driver_number) ?? [];
-                    const beforeList = driverPositions.filter(
-                        (p) => p.date <= lap.date_start,
-                    );
-                    const before = beforeList.length
-                        ? beforeList[beforeList.length - 1]
-                        : null;
-                    const sample = before ?? driverPositions[0] ?? null;
-                    row[driver.name_acronym] = sample?.position ?? null;
-                });
+            laps.filter((l) => l.lap_number === lapNum).forEach((lap) => {
+                const driver = drivers.find(
+                    (d) => d.driver_number === lap.driver_number,
+                );
+                if (!driver) return;
+                const driverPositions =
+                    positionsByDriver.get(lap.driver_number) ?? [];
+                const beforeList = driverPositions.filter(
+                    (p) => p.date <= lap.date_start,
+                );
+                const before = beforeList.length
+                    ? beforeList[beforeList.length - 1]
+                    : null;
+                const sample = before ?? driverPositions[0] ?? null;
+                row[driver.name_acronym] = sample?.position ?? null;
+            });
             return row;
         });
     }, [laps, positions, drivers]);
 
     // Cheap: only a filter per lap tick
     const chartData = useMemo(
-        () => fullChartData.filter(row => (row.lap as number) <= currentLap),
+        () => fullChartData.filter((row) => (row.lap as number) <= currentLap),
         [fullChartData, currentLap],
     );
 
     // ── Edge positions for side labels ────────────────────────────────────────
 
     const edgePositions = useMemo(() => {
-        if (!chartData.length) return new Map<string, { leftPos: number | null; rightPos: number | null }>();
+        if (!chartData.length)
+            return new Map<
+                string,
+                { leftPos: number | null; rightPos: number | null }
+            >();
         const first = chartData[0];
         const lastLap = chartData[chartData.length - 1].lap as number;
         // A driver is considered a finisher if their last recorded lap is within
         // 3 laps of the final lap in the dataset (handles sparse data at race end).
         const DNF_THRESHOLD = 3;
-        const map = new Map<string, { leftPos: number | null; rightPos: number | null }>();
+        const map = new Map<
+            string,
+            { leftPos: number | null; rightPos: number | null }
+        >();
         drivers.forEach((d) => {
             let rightPos: number | null = null;
             let rightLap: number | null = null;
@@ -206,7 +219,8 @@ export default function PositionChart({
                 }
             }
             // Only show right label for drivers who finished (last lap close to race end)
-            const finished = rightLap != null && lastLap - rightLap <= DNF_THRESHOLD;
+            const finished =
+                rightLap != null && lastLap - rightLap <= DNF_THRESHOLD;
             map.set(d.name_acronym, {
                 leftPos: (first[d.name_acronym] as number) ?? null,
                 rightPos: finished ? rightPos : null,
@@ -236,7 +250,10 @@ export default function PositionChart({
         );
     }, [drivers, chartData]);
 
-    const teamGroups = useMemo(() => buildTeamGroups(sortedDrivers), [sortedDrivers]);
+    const teamGroups = useMemo(
+        () => buildTeamGroups(sortedDrivers),
+        [sortedDrivers],
+    );
 
     return (
         <div className="bg-f1-card rounded-xl border border-f1-border p-4">
@@ -248,7 +265,7 @@ export default function PositionChart({
                 {hasFocus && (
                     <button
                         onClick={clearFocus}
-                        className="text-[10px] text-f1-muted hover:text-white transition-colors px-2 py-0.5 rounded border border-f1-border hover:border-gray-500"
+                        className="text-[10px] text-f1-muted hover:text-white transition-colors px-2 py-0.5 rounded border border-f1-border hover:border-f1-border/70"
                     >
                         Clear focus
                     </button>
@@ -256,8 +273,10 @@ export default function PositionChart({
             </div>
 
             {/* Chart area with absolute-positioned side labels */}
-            <div className="relative" style={{ height: CHART_HEIGHT, zIndex: 1 }}>
-
+            <div
+                className="relative"
+                style={{ height: CHART_HEIGHT, zIndex: 1 }}
+            >
                 {/* LEFT labels */}
                 <div
                     className="absolute top-0 left-0 bottom-[20px] pointer-events-none"
@@ -352,7 +371,28 @@ export default function PositionChart({
                                 width={22}
                             />
                             <Tooltip
-                                content={(props: any) => <TooltipContent {...props} focusedAcronyms={hasFocus ? new Set(drivers.filter(d => focusedDrivers.has(d.driver_number)).map(d => d.name_acronym)) : null} hasFocus={hasFocus} />}
+                                content={(props: any) => (
+                                    <TooltipContent
+                                        {...props}
+                                        focusedAcronyms={
+                                            hasFocus
+                                                ? new Set(
+                                                      drivers
+                                                          .filter((d) =>
+                                                              focusedDrivers.has(
+                                                                  d.driver_number,
+                                                              ),
+                                                          )
+                                                          .map(
+                                                              (d) =>
+                                                                  d.name_acronym,
+                                                          ),
+                                                  )
+                                                : null
+                                        }
+                                        hasFocus={hasFocus}
+                                    />
+                                )}
                                 cursor={{
                                     stroke: "#6b7280",
                                     strokeDasharray: "5 5",
@@ -370,7 +410,19 @@ export default function PositionChart({
                                         strokeWidth={style.strokeWidth}
                                         strokeOpacity={style.opacity}
                                         dot={false}
-                                        activeDot={!hasFocus || focusedDrivers.has(driver.driver_number) ? { r: 4, fill: color, stroke: "#fff", strokeWidth: 1.5 } : false}
+                                        activeDot={
+                                            !hasFocus ||
+                                            focusedDrivers.has(
+                                                driver.driver_number,
+                                            )
+                                                ? {
+                                                      r: 4,
+                                                      fill: color,
+                                                      stroke: "#fff",
+                                                      strokeWidth: 1.5,
+                                                  }
+                                                : false
+                                        }
                                         connectNulls
                                         isAnimationActive={false}
                                     />
@@ -384,12 +436,17 @@ export default function PositionChart({
             {/* Team-grouped driver legend — one column per team */}
             <div
                 className="mt-3 grid gap-x-4 gap-y-3"
-                style={{ gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))` }}
+                style={{
+                    gridTemplateColumns: `repeat(${Math.ceil(teamGroups.length / 2)}, minmax(0, 1fr))`,
+                }}
             >
                 {teamGroups.map((group) => {
                     const teamColor = `#${group.teamColour}`;
                     return (
-                        <div key={group.teamColour} className="flex flex-col gap-1">
+                        <div
+                            key={group.teamColour}
+                            className="flex flex-col gap-1"
+                        >
                             {/* Team name */}
                             <span
                                 className="text-[10px] font-semibold uppercase tracking-wide"
@@ -400,12 +457,16 @@ export default function PositionChart({
                             {/* Driver buttons stacked vertically */}
                             {group.drivers.map((driver) => {
                                 const color = `#${driver.team_colour || "ffffff"}`;
-                                const focused = focusedDrivers.has(driver.driver_number);
+                                const focused = focusedDrivers.has(
+                                    driver.driver_number,
+                                );
                                 const dimmed = hasFocus && !focused;
                                 return (
                                     <button
                                         key={driver.driver_number}
-                                        onClick={() => toggleDriver(driver.driver_number)}
+                                        onClick={() =>
+                                            toggleDriver(driver.driver_number)
+                                        }
                                         className="flex items-center gap-1 px-2 py-0.5 rounded font-mono font-bold transition-all"
                                         style={{
                                             fontSize: 11,
@@ -423,10 +484,15 @@ export default function PositionChart({
                                         <span
                                             className="inline-block w-1.5 h-1.5 rounded-full flex-shrink-0"
                                             style={{
-                                                backgroundColor: dimmed ? "#374151" : color,
+                                                backgroundColor: dimmed
+                                                    ? "#374151"
+                                                    : color,
                                             }}
                                         />
-                                        {driver.full_name?.split(" ").slice(-1)[0] ?? driver.name_acronym}
+                                        {driver.full_name
+                                            ?.split(" ")
+                                            .slice(-1)[0] ??
+                                            driver.name_acronym}
                                     </button>
                                 );
                             })}
