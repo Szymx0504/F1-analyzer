@@ -27,10 +27,10 @@ _live_cache: TTLCache = TTLCache(maxsize=128, ttl=10)
 _client: httpx.AsyncClient | None = None
 
 # Semaphore to limit concurrent requests to OpenF1 (avoid 429)
-_semaphore = asyncio.Semaphore(3)
+_semaphore = asyncio.Semaphore(2)
 
-MAX_RETRIES = 3
-RETRY_BACKOFF = [1.0, 3.0, 6.0]
+MAX_RETRIES = 6
+RETRY_BACKOFF = [1.0, 2.0, 4.0, 8.0, 12.0, 20.0]
 
 
 def _get_client() -> httpx.AsyncClient:
@@ -53,32 +53,34 @@ async def _fetch(endpoint: str, params: dict[str, Any] | None = None, live: bool
     if not bypass_cache and key in cache:
         return cache[key]
 
-    async with _semaphore:
-        if not bypass_cache and key in cache:
-            return cache[key]
+    resp = None
+    for attempt in range(MAX_RETRIES):
+        async with _semaphore:
+            if not bypass_cache and key in cache:
+                return cache[key]
 
-        client = _get_client()
-        for attempt in range(MAX_RETRIES):
+            client = _get_client()
             request_params = dict(params or {})
             if OPENF1_API_KEY and OPENF1_API_KEY_QUERY_PARAM:
                 request_params[OPENF1_API_KEY_QUERY_PARAM] = OPENF1_API_KEY
             resp = await client.get(f"{BASE_URL}{endpoint}", params=request_params)
-            if resp.status_code == 429:
-                wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
-                print(
-                    f"[OpenF1] 429 rate-limited on {endpoint}, retrying in {wait}s (attempt {attempt+1})")
-                await asyncio.sleep(wait)
-                continue
-            if resp.status_code == 401:
-                raise httpx.HTTPStatusError(
-                    f"Unauthorized access to OpenF1: {resp.text}",
-                    request=resp.request,
-                    response=resp,
-                )
-            resp.raise_for_status()
-            data = resp.json()
-            cache[key] = data
-            return data
+
+        if resp.status_code == 429:
+            wait = RETRY_BACKOFF[min(attempt, len(RETRY_BACKOFF) - 1)]
+            print(
+                f"[OpenF1] 429 rate-limited on {endpoint}, retrying in {wait}s (attempt {attempt+1})")
+            await asyncio.sleep(wait)
+            continue
+        if resp.status_code == 401:
+            raise httpx.HTTPStatusError(
+                f"Unauthorized access to OpenF1: {resp.text}",
+                request=resp.request,
+                response=resp,
+            )
+        resp.raise_for_status()
+        data = resp.json()
+        cache[key] = data
+        return data
 
     raise httpx.HTTPStatusError(
         f"Rate-limited after {MAX_RETRIES} retries on {endpoint}",
