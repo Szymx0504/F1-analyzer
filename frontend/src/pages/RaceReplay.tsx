@@ -7,7 +7,7 @@ import LapTimesChart from "../components/charts/LapTimesChart";
 import GapChart from "../components/charts/GapChart";
 import TireStrategy from "../components/charts/TireStrategy";
 import WeatherPanel from "../components/charts/WeatherPanel";
-import SpeedTrace from "../components/charts/SpeedTrace";
+import RaceEventsFeed from "../components/charts/RaceEventsFeed";
 import TrackMap from "../components/charts/TrackMap";
 import ReplayControls from "../components/replay/ReplayControls";
 
@@ -244,21 +244,14 @@ export default function RaceReplay() {
                         currentLap={currentLap}
                         maxLap={maxLap}
                     />
-                    <SpeedTrace
-                        sessionKey={sessionKey!}
-                        driverNumber={
-                            selectedDriver ??
-                            uniqueDrivers[0]?.driver_number ??
-                            null
-                        }
-                        driver={
-                            uniqueDrivers.find(
-                                (d) =>
-                                    d.driver_number ===
-                                    (selectedDriver ??
-                                        uniqueDrivers[0]?.driver_number),
-                            ) ?? null
-                        }
+                    <RaceEventsFeed
+                        laps={raceData.laps}
+                        positions={raceData.positions}
+                        stints={raceData.stints}
+                        drivers={uniqueDrivers}
+                        currentLap={currentLap}
+                        maxLap={maxLap}
+                        highlightDriver={selectedDriver}
                     />
                     <div className="lg:col-span-2">
                         <TrackMap
